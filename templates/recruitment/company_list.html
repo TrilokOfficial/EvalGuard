@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block page_title %}Company Management{% endblock %}
+{% block content %}
+<div style="max-width:1000px;margin:20px auto">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">🏢 My Companies</span>
+            <a href="/recruitment/" class="btn btn-primary btn-sm">← Back to Dashboard</a>
+        </div>
+        <div class="card-body">
+            {% if companies %}
+                <div class="stats-grid" style="margin-bottom:24px">
+                    <div class="stat-card purple">
+                        <div class="stat-label">Total Companies</div>
+                        <div class="stat-value">{{ companies|length }}</div>
+                        <div class="stat-icon">🏢</div>
+                    </div>
+                    <div class="stat-card blue">
+                        <div class="stat-label">Job Roles</div>
+                        <div class="stat-value">{{ companies|length }} Companies</div>
+                        <div class="stat-icon">💼</div>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+                    {% for company in companies %}
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 style="margin-bottom:12px">{{ company.name }}</h4>
+                            <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">{{ company.description|default:"No description available" }}</p>
+                            
+                            <div style="margin-bottom:16px">
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Job Roles</div>
+                                {% for role in company.roles.all %}
+                                <div style="background:rgba(124,58,237,0.1);padding:8px 12px;border-radius:6px;margin-bottom:4px">
+                                    <div style="font-weight:600">{{ role.title }}</div>
+                                    <div style="font-size:11px;color:var(--text-muted)">{{ role.assessment_duration }} mins • {{ role.candidates.count }} candidates</div>
+                                </div>
+                                {% empty %}
+                                <div style="color:var(--text-muted);font-size:12px">No job roles defined</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div style="display:flex;gap:8px">
+                                <a href="#" class="btn btn-sm btn-outline">Edit Company</a>
+                                <a href="#" class="btn btn-sm btn-primary">Add Role</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align:center;padding:60px;color:var(--text-muted)">
+                    <div style="font-size:48px;margin-bottom:12px">🏢</div>
+                    <p>No companies found.</p>
+                    <a href="#" class="btn btn-primary">Add Your First Company</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

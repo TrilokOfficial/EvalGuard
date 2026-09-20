@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Session — {{ candidate_name }} | EvalGuard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #111118;
+            --glass: rgba(255,255,255,0.04);
+            --border: rgba(255,255,255,0.08);
+            --text: #f1f5f9;
+            --muted: #64748b;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+            --pink: #ec4899;
+            --accent: #14b8a6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Top Bar ─────────────────────────── */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .topbar-brand span {
+            font-size: 20px;
+        }
+
+        .topbar-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .topbar-info .name {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .topbar-info .code {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: rgba(20,184,166,0.12);
+            border: 1px solid rgba(20,184,166,0.2);
+            border-radius: 6px;
+            padding: 3px 8px;
+            color: var(--accent);
+        }
+
+        .monitoring-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ── Main Content ────────────────────── */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            flex: 1;
+            min-height: 0;
+            gap: 0;
+        }
+
+        /* ── Jitsi Panel ─────────────────────── */
+        .jitsi-panel {
+            background: #000;
+            position: relative;
+        }
+
+        .jitsi-panel iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* ── Monitoring Panel ────────────────── */
+        .monitor-panel {
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 16px;
+            gap: 14px;
+        }
+
+        .monitor-section {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .monitor-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ── Webcam ──────────────────────────── */
+        .webcam-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #webcamVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        #faceCanvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transform: scaleX(-1);
+        }
+
+        .webcam-overlay {
+            position: absolute;
+            top: 8px; right: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: flex-end;
+        }
+
+        .cam-badge {
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            backdrop-filter: blur(8px);
+        }
+
+        .cam-badge.safe { background: rgba(16,185,129,0.85); color: #fff; }
+        .cam-badge.warn { background: rgba(245,158,11,0.85); color: #fff; }
+        .cam-badge.danger { background: rgba(239,68,68,0.85); color: #fff; animation: blink 1s infinite; }
+
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+        /* ── Metrics ─────────────────────────── */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .metric-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .metric-box .label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+        }
+
+        .metric-box .value {
+            font-size: 20px;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        /* ── AI Overlay Alert ────────────────── */
+        .overlay-alert {
+            display: none;
+            padding: 12px;
+            background: rgba(236,72,153,0.12);
+            border: 1px solid rgba(236,72,153,0.4);
+            border-radius: 10px;
+            animation: alert-pulse 1.5s infinite;
+        }
+
+        .overlay-alert.visible { display: block; }
+
+        @keyframes alert-pulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(236,72,153,0.3); }
+            50% { box-shadow: 0 0 16px 4px rgba(236,72,153,0.15); }
+        }
+
+        .overlay-alert-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--pink);
+            margin-bottom: 4px;
+        }
+
+        .overlay-alert-msg {
+            font-size: 11px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        /* ── Detection Log ───────────────────── */
+        .detection-log {
+            max-height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .log-item {
+            display: flex;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+        }
+
+        .log-item.critical { border-color: rgba(236,72,153,0.3); background: rgba(236,72,153,0.06); }
+        .log-item.warning { border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); }
+        .log-item.info { border-color: rgba(20,184,166,0.2); }
+
+        .log-time { color: var(--muted); white-space: nowrap; }
+        .log-msg { flex: 1; }
+
+        /* ── Progress Bar ─────────────────────── */
+        .progress-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s;
+            background: var(--green);
+        }
+        .progress-fill.warn { background: var(--yellow); }
+        .progress-fill.danger { background: var(--red); }
+    </style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+    <div class="topbar-brand">
+        <span>🛡️</span>
+        <span>EvalGuard</span>
+        <span style="font-size:12px;color:var(--muted);font-weight:400">/ Interview Session</span>
+    </div>
+    <div class="topbar-info">
+        <span>Welcome, <span class="name">{{ candidate_name }}</span></span>
+        <span>Code: <span class="code">{{ meeting.code }}</span></span>
+        <div style="display:flex;align-items:center;gap:6px">
+            <div class="monitoring-dot"></div>
+            <span style="font-size:12px;color:var(--green)">Monitoring Active</span>
+        </div>
+        <span id="sessionTimer" style="font-family:'Courier New';font-size:12px;color:var(--muted)">00:00:00</span>
+    </div>
+</div>
+
+<!-- Main Layout -->
+<div class="main-layout">
+    <!-- Jitsi Meeting -->
+    <div class="jitsi-panel">
+        <iframe
+            src="{{ jitsi_url }}#userInfo.displayName={{ candidate_name|urlencode }}&config.prejoinPageEnabled=false&config.disableDeepLinking=true"
+            allow="camera; microphone; fullscreen; display-capture"
+            id="jitsiFrame">
+        </iframe>
+    </div>
+
+    <!-- Monitoring Panel -->
+    <div class="monitor-panel">
+
+        <!-- Webcam Feed -->
+        <div class="monitor-section">
+            <div class="monitor-title">📷 Webcam Monitor</div>
+            <div class="webcam-container">
+                <video id="webcamVideo" autoplay playsinline muted></video>
+                <canvas id="faceCanvas"></canvas>
+                <div class="webcam-overlay">
+                    <span class="cam-badge safe" id="faceStatusBadge">✓ Face OK</span>
+                    <span class="cam-badge safe" id="attentionBadge">👁 Focused</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="monitor-section">
+            <div class="monitor-title">📊 Session Metrics</div>
+            <div class="metrics-grid">
+                <div class="metric-box">
+                    <div class="label">Blinks</div>
+                    <div class="value" id="blinkCount" style="color:var(--accent)">0</div>
+                </div>
+                <div class="metric-box">
+                    <div class="label">Attention</div>
+                    <div class="value" id="attentionPct" style="color:var(--green)">100%</div>
+                </div>
+                <div class="metric-box">
+                    <div class="label">Head Yaw</div>
+                    <div class="value" id="headYaw" style="color:var(--text)">0°</div>
+                </div>
+                <div class="metric-box">
+                    <div class="label">Violations</div>
+                    <div class="value" id="violCount" style="color:var(--muted)">0</div>
+                </div>
+            </div>
+            <div style="margin-top:10px">
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px">
+                    <span>Risk Level</span>
+                    <span id="riskLabel">Low</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="riskBar" style="width:5%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Overlay Detection -->
+        <div class="monitor-section">
+            <div class="monitor-title">🤖 AI Overlay Detection</div>
+            <div class="overlay-alert" id="overlayAlert">
+                <div class="overlay-alert-title">⚠️ AI Overlay Detected!</div>
+                <div class="overlay-alert-msg" id="overlayAlertMsg">Suspicious overlay application detected. Your recruiter has been notified.</div>
+            </div>
+            <div class="detection-log" id="detectionLog">
+                <div class="log-item info">
+                    <span class="log-time">--:--</span>
+                    <span class="log-msg" style="color:var(--muted)">Monitoring started — no threats detected</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// ── Session Config ─────────────────────────────
+const SESSION_ID = '{{ room_name }}';
+const CANDIDATE_NAME = '{{ candidate_name }}';
+const WS_URL = `ws://${location.host}/ws/recruiter/dashboard/`;
+
+// ── WebSocket to Recruiter Dashboard ──────────
+let ws;
+let wsReady = false;
+
+function connectWS() {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => {
+        wsReady = true;
+        ws.send(JSON.stringify({
+            type: 'candidate_session_join',
+            session_id: SESSION_ID,
+            candidate_name: CANDIDATE_NAME,
+        }));
+        addLog('info', 'Connected to proctoring system');
+    };
+    ws.onclose = () => {
+        wsReady = false;
+        setTimeout(connectWS, 3000);
+    };
+    ws.onerror = () => {};
+}
+
+function sendWS(data) {
+    if (wsReady && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+    }
+}
+
+connectWS();
+
+// ── Timer ──────────────────────────────────────
+let sessionStart = Date.now();
+setInterval(() => {
+    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+    const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+    const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    document.getElementById('sessionTimer').textContent = `${h}:${m}:${s}`;
+}, 1000);
+
+// ── Webcam Setup ───────────────────────────────
+const video = document.getElementById('webcamVideo');
+const canvas = document.getElementById('faceCanvas');
+const ctx = canvas.getContext('2d');
+
+let blinkCount = 0;
+let violCount = 0;
+let riskScore = 0;
+let lastFaceDetected = true;
+
+navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    .then(stream => { video.srcObject = stream; })
+    .catch(() => addLog('warning', 'Camera access denied — monitoring limited'));
+
+video.addEventListener('loadedmetadata', () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    startFaceTracking();
+});
+
+// ── Lightweight Face Tracking (canvas pixel analysis) ──
+function startFaceTracking() {
+    let frameCount = 0;
+    let prevBrightness = null;
+    let attentionFrames = 0;
+
+    setInterval(() => {
+        if (video.readyState < 2) return;
+        frameCount++;
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // Compute average brightness (proxy for face presence)
+        let totalBrightness = 0;
+        const step = 20;
+        let sampleCount = 0;
+        for (let i = 0; i < data.length; i += 4 * step) {
+            const r = data[i], g = data[i+1], b = data[i+2];
+            totalBrightness += (r * 0.299 + g * 0.587 + b * 0.114);
+            sampleCount++;
+        }
+        const avgBrightness = totalBrightness / sampleCount;
+
+        // Blink detection: sudden drop + recovery in brightness (simplified)
+        if (prevBrightness !== null) {
+            const delta = Math.abs(avgBrightness - prevBrightness);
+            if (delta > 8 && frameCount % 15 === 0) {
+                blinkCount++;
+                document.getElementById('blinkCount').textContent = blinkCount;
+            }
+        }
+        prevBrightness = avgBrightness;
+
+        // Face detection proxy: darkness or very bright (no face)
+        const faceDetected = avgBrightness > 20 && avgBrightness < 240;
+        updateFaceStatus(faceDetected);
+
+        // Attention tracking (every ~3s)
+        if (frameCount % 90 === 0) {
+            const attention = hasFocus ? (faceDetected ? 100 : 20) : 40;
+            document.getElementById('attentionPct').textContent = attention + '%';
+            document.getElementById('attentionPct').style.color =
+                attention > 70 ? 'var(--green)' : attention > 40 ? 'var(--yellow)' : 'var(--red)';
+
+            sendWS({
+                type: 'frame_update',
+                session_id: SESSION_ID,
+                face_count: faceDetected ? 1 : 0,
+                blink_count: blinkCount,
+                total_violations: violCount,
+                tab_switches: tabSwitchCount,
+                candidate_name: CANDIDATE_NAME,
+                tracking_data: {
+                    zone_info: { current_zone: attention > 70 ? 'green' : attention > 40 ? 'yellow' : 'red' }
+                }
+            });
+        }
+    }, 33); // ~30fps
+}
+
+function updateFaceStatus(detected) {
+    const badge = document.getElementById('faceStatusBadge');
+    if (detected) {
+        badge.className = 'cam-badge safe';
+        badge.textContent = '✓ Face OK';
+    } else {
+        badge.className = 'cam-badge danger';
+        badge.textContent = '✗ No Face!';
+        if (lastFaceDetected) {
+            violCount++;
+            document.getElementById('violCount').textContent = violCount;
+            addLog('warning', 'Face not detected in frame');
+            updateRisk(10);
+        }
+    }
+    lastFaceDetected = detected;
+}
+
+// ── Tab / Focus Detection ─────────────────────
+let hasFocus = true;
+let tabSwitchCount = 0;
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        hasFocus = false;
+        tabSwitchCount++;
+        violCount++;
+        document.getElementById('violCount').textContent = violCount;
+        addLog('warning', `Tab switch detected (#${tabSwitchCount})`);
+        updateRisk(15);
+        sendWS({
+            type: 'violation_alert',
+            session_id: SESSION_ID,
+            candidate_name: CANDIDATE_NAME,
+            type: 'Tab Switch',
+            severity: 'medium',
+            message: `Candidate switched tab (count: ${tabSwitchCount})`
+        });
+        document.getElementById('attentionBadge').className = 'cam-badge warn';
+        document.getElementById('attentionBadge').textContent = '⚠ Distracted';
+    } else {
+        hasFocus = true;
+        document.getElementById('attentionBadge').className = 'cam-badge safe';
+        document.getElementById('attentionBadge').textContent = '👁 Focused';
+    }
+});
+
+// ── AI Overlay Detection Engine ───────────────
+//
+// Strategy: detect known AI overlay tools using:
+// 1. Pixel signature analysis on corners (FinalRound / Parakeet place UI there)
+// 2. Page visibility + window focus anomalies
+// 3. CSS computed style injection detection
+// 4. Window object property fingerprinting
+//
+
+const OVERLAY_SIGNATURES = [
+    {
+        name: 'FinalRound AI',
+        check: () => {
+            // FinalRound AI injects a fixed-position div with specific class
+            return !!(
+                document.querySelector('[data-finalround]') ||
+                document.querySelector('[class*="finalround"]') ||
+                document.querySelector('[id*="finalround"]') ||
+                Array.from(document.querySelectorAll('*')).some(el => {
+                    const style = window.getComputedStyle(el);
+                    return style.position === 'fixed' && style.zIndex > 9990 &&
+                        el.offsetWidth > 200 && el.tagName !== 'VIDEO' &&
+                        el !== document.getElementById('jitsiFrame');
+                })
+            );
+        }
+    },
+    {
+        name: 'Parakeet AI',
+        check: () => {
+            return !!(
+                document.querySelector('[data-parakeet]') ||
+                document.querySelector('[class*="parakeet"]') ||
+                document.querySelector('[id*="parakeet"]') ||
+                window.__PARAKEET__ ||
+                window.ParakeetAI
+            );
+        }
+    },
+    {
+        name: 'AI Overlay (Generic)',
+        check: () => {
+            // Detect high-zIndex fixed overlays not from our own UI
+            const suspiciousEls = Array.from(document.querySelectorAll('*')).filter(el => {
+                const style = window.getComputedStyle(el);
+                const zIndex = parseInt(style.zIndex) || 0;
+                return style.position === 'fixed' &&
+                    zIndex > 5000 &&
+                    el.offsetWidth > 100 &&
+                    el.offsetHeight > 30 &&
+                    style.opacity !== '0' &&
+                    !el.closest('#jitsiFrame') &&
+                    el.id !== 'overlayAlert';
+            });
+            return suspiciousEls.length > 0;
+        }
+    }
+];
+
+let overlayDetected = false;
+let lastOverlayCheck = 0;
+const OVERLAY_CHECK_INTERVAL = 5000; // Every 5 seconds
+
+// Also check for screen-share pixel corner analysis
+function analyzeCornerPixels() {
+    if (!canvas || canvas.width === 0) return null;
+    // Check top-left 20x20 corner for UI-like uniform color blocks
+    const cornerData = ctx.getImageData(0, 0, 20, 20);
+    let uniformColor = true;
+    const r0 = cornerData.data[0], g0 = cornerData.data[1], b0 = cornerData.data[2];
+    for (let i = 0; i < cornerData.data.length; i += 4) {
+        if (Math.abs(cornerData.data[i] - r0) > 30 ||
+            Math.abs(cornerData.data[i+1] - g0) > 30 ||
+            Math.abs(cornerData.data[i+2] - b0) > 30) {
+            uniformColor = false;
+            break;
+        }
+    }
+    // Very uniform dark corner with specific color may indicate overlay
+    const isDarkUniform = uniformColor && r0 < 50 && g0 < 50;
+    return isDarkUniform;
+}
+
+function runOverlayDetection() {
+    const now = Date.now();
+    if (now - lastOverlayCheck < OVERLAY_CHECK_INTERVAL) return;
+    lastOverlayCheck = now;
+
+    for (const sig of OVERLAY_SIGNATURES) {
+        try {
+            if (sig.check()) {
+                reportOverlay(sig.name, 0.85);
+                return;
+            }
+        } catch (e) {}
+    }
+
+    // Corner pixel analysis (subtle heuristic)
+    if (analyzeCornerPixels()) {
+        reportOverlay('AI Overlay (Screen Analysis)', 0.6);
+    }
+}
+
+function reportOverlay(overlayType, confidence) {
+    if (overlayDetected) return; // Don't spam
+    overlayDetected = true;
+
+    // Show local alert
+    document.getElementById('overlayAlert').classList.add('visible');
+    document.getElementById('overlayAlertMsg').textContent =
+        `Detected: ${overlayType} — your recruiter has been notified immediately.`;
+
+    addLog('critical', `🤖 AI overlay: ${overlayType} (${Math.round(confidence * 100)}% confidence)`);
+    updateRisk(50);
+    violCount += 3;
+    document.getElementById('violCount').textContent = violCount;
+
+    // Alert recruiter via WebSocket
+    sendWS({
+        type: 'ai_overlay_detected',
+        session_id: SESSION_ID,
+        candidate_name: CANDIDATE_NAME,
+        overlay_type: overlayType,
+        confidence: confidence,
+        timestamp: new Date().toISOString(),
+    });
+
+    // Reset after 30s to allow re-detection
+    setTimeout(() => { overlayDetected = false; }, 30000);
+}
+
+// Run overlay detection on a regular interval
+setInterval(runOverlayDetection, 2000);
+
+// ── Expose test hook (for manual testing) ─────
+window.dispatchEvent = (function(original) {
+    return function(evt) {
+        if (evt.type === 'overlay_test') {
+            reportOverlay('Test Overlay', 1.0);
+        }
+        return original.call(this, evt);
+    };
+})(window.dispatchEvent);
+
+// ── Risk Score ─────────────────────────────────
+function updateRisk(delta) {
+    riskScore = Math.min(100, riskScore + delta);
+    const bar = document.getElementById('riskBar');
+    const label = document.getElementById('riskLabel');
+    bar.style.width = riskScore + '%';
+    if (riskScore < 30) {
+        bar.className = 'progress-fill';
+        label.textContent = 'Low';
+        label.style.color = 'var(--green)';
+    } else if (riskScore < 65) {
+        bar.className = 'progress-fill warn';
+        label.textContent = 'Medium';
+        label.style.color = 'var(--yellow)';
+    } else {
+        bar.className = 'progress-fill danger';
+        label.textContent = 'High';
+        label.style.color = 'var(--red)';
+    }
+}
+
+// ── Detection Log ──────────────────────────────
+function addLog(level, message) {
+    const log = document.getElementById('detectionLog');
+    const item = document.createElement('div');
+    item.className = `log-item ${level}`;
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const icons = { critical: '🤖', warning: '⚠️', info: 'ℹ️' };
+    item.innerHTML = `
+        <span class="log-time">${time}</span>
+        <span class="log-msg">${icons[level] || ''} ${message}</span>
+    `;
+    log.prepend(item);
+    // Keep max 20 items
+    while (log.children.length > 20) log.removeChild(log.lastChild);
+}
+
+// ── Handle WS termination message ─────────────
+if (ws) {
+    ws.addEventListener('message', (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            if (data.type === 'terminate_session' && data.session_id === SESSION_ID) {
+                document.body.innerHTML = `
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;color:#fff;gap:16px">
+                        <div style="font-size:48px">🛑</div>
+                        <h2 style="font-size:22px">Session Terminated</h2>
+                        <p style="color:#64748b">Your interview session was ended by the recruiter.</p>
+                    </div>`;
+            }
+        } catch(e) {}
+    });
+}
+</script>
+</body>
+</html>

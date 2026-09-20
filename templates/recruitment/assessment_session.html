@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block page_title %}Assessment Session - {{ session.candidate.user.get_full_name|default:session.candidate.user.username }}{% endblock %}
+{% block content %}
+<div style="max-width:1000px;margin:20px auto">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">👔 Assessment Session</span>
+            <span class="badge badge-{% if session.status == 'completed' %}green{% elif session.status == 'in_progress' %}blue{% else %}yellow{% endif %}">{{ session.status }}</span>
+            <a href="/recruitment/" class="btn btn-outline btn-sm">← Back to Dashboard</a>
+        </div>
+        <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+                <div>
+                    <h4 style="margin-bottom:12px">Candidate Information</h4>
+                    <div style="background:var(--glass);padding:16px;border-radius:8px">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                            <div><div style="font-size:11px;color:var(--text-muted)">Name</div><div style="font-weight:600">{{ session.candidate.user.get_full_name|default:session.candidate.user.username }}</div></div>
+                            <div><div style="font-size:11px;color:var(--text-muted)">Email</div><div style="font-weight:600">{{ session.candidate.user.email }}</div></div>
+                            <div><div style="font-size:11px;color:var(--text-muted)">Applied</div><div style="font-weight:600">{{ session.applied_at|date:"M d, Y H:i" }}</div></div>
+                            <div><div style="font-size:11px;color:var(--text-muted)">Token</div><div style="font-weight:600;font-family:monospace">{{ session.access_token|truncatechars:12 }}</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h4 style="margin-bottom:12px">Job Role</h4>
+                    <div style="background:var(--glass);padding:16px;border-radius:8px">
+                        <div style="font-weight:600;margin-bottom:8px">{{ session.job_role.title }}</div>
+                        <div style="font-size:12px;color:var(--text-muted)">{{ session.job_role.company.name }}</div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Duration: {{ session.job_role.assessment_duration }} minutes</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid" style="margin-bottom:24px">
+                <div class="stat-card purple">
+                    <div class="stat-label">Session ID</div>
+                    <div class="stat-value" style="font-size:14px;font-family:monospace">{{ session.id|truncatechars:16 }}</div>
+                    <div class="stat-icon">🆔</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="stat-label">Duration</div>
+                    <div class="stat-value">{{ session.duration|default:0 }}s</div>
+                    <div class="stat-icon">⏱️</div>
+                </div>
+                <div class="stat-card yellow">
+                    <div class="stat-label">Violations</div>
+                    <div class="stat-value">{{ session.violation_count|default:0 }}</div>
+                    <div class="stat-icon">⚠️</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-label">Risk Score</div>
+                    <div class="stat-value">{{ session.risk_score|default:0|floatformat:0 }}</div>
+                    <div class="stat-icon">📊</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><span class="card-title">📊 Assessment Analytics</span></div>
+                <div class="card-body">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+                        <div>
+                            <h5 style="margin-bottom:12px">Proctoring Metrics</h5>
+                            <div style="background:var(--glass);padding:16px;border-radius:8px">
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+                                    <div><span style="color:var(--text-muted)">Tab Switches:</span> <strong>{{ session.tab_switch_count|default:0 }}</strong></div>
+                                    <div><span style="color:var(--text-muted)">Face Detection:</span> <strong>{{ session.face_detection_failures|default:0 }} failures</strong></div>
+                                    <div><span style="color:var(--text-muted)">Multiple Faces:</span> <strong>{{ session.multiple_face_detections|default:0 }} detections</strong></div>
+                                    <div><span style="color:var(--text-muted)">Looking Away:</span> <strong>{{ session.looking_away_count|default:0 }} times</strong></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 style="margin-bottom:12px">Assessment Status</h5>
+                            <div style="background:var(--glass);padding:16px;border-radius:8px">
+                                <div style="margin-bottom:12px">
+                                    <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Progress</div>
+                                    <div style="height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden">
+                                        <div style="height:100%;width:{{ session.progress_percentage|default:0 }}%;background:var(--accent-green)"></div>
+                                    </div>
+                                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">{{ session.progress_percentage|default:0 }}% complete</div>
+                                </div>
+                                <div style="font-size:12px">
+                                    <div style="margin-bottom:4px"><strong>Status:</strong> {{ session.get_status_display }}</div>
+                                    <div><strong>Started:</strong> {{ session.started_at|default:"Not started" }}</div>
+                                    <div><strong>Completed:</strong> {{ session.completed_at|default:"In progress" }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px;display:flex;gap:12px">
+                <a href="/analytics/session/{{ session.id }}/" class="btn btn-primary">📊 View Analytics</a>
+                <a href="/analytics/reports/{{ session.id }}/pdf/" class="btn btn-outline">📄 Download Report</a>
+                {% if session.status != 'completed' %}
+                    <button onclick="terminateSession()" class="btn btn-danger">⚠️ Terminate Session</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function terminateSession() {
+    if (confirm('Are you sure you want to terminate this assessment session? This action cannot be undone.')) {
+        fetch('/monitoring/api/session/{{ session.id }}/terminate/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Session terminated successfully.');
+                location.reload();
+            } else {
+                alert('Failed to terminate session.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while terminating the session.');
+        });
+    }
+}
+</script>
+{% endblock %}

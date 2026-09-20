@@ -1,0 +1,670 @@
+{% extends 'base.html' %}
+{% block page_title %}Proctor Dashboard{% endblock %}
+{% block topbar_actions %}
+<span class="live-dot"></span>
+<span style="font-size:13px;margin-left:6px;color:var(--text-secondary)">Live Monitoring</span>
+<a href="/exam/create/" class="topbar-btn primary">➕ New Exam</a>
+{% endblock %}
+{% block extra_css %}
+<style>
+    .students-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px
+    }
+
+    .student-card {
+        background: var(--glass);
+        border: 1px solid var(--glass-border);
+        border-radius: 14px;
+        overflow: hidden;
+        transition: .2s
+    }
+
+    .student-card:hover {
+        border-color: rgba(124, 58, 237, .4);
+        box-shadow: 0 4px 20px rgba(124, 58, 237, .1)
+    }
+
+    .student-cam {
+        background: #0a0a1a;
+        aspect-ratio: 4/3;
+        position: relative;
+        overflow: hidden
+    }
+
+    .student-cam img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover
+    }
+
+    .student-cam-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--text-muted)
+    }
+
+    .student-info {
+        padding: 12px
+    }
+
+    .risk-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        padding: 4px 8px;
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 700;
+        backdrop-filter: blur(8px)
+    }
+
+    .risk-low {
+        background: rgba(16, 185, 129, .8);
+        color: #fff
+    }
+
+    .risk-med {
+        background: rgba(245, 158, 11, .8);
+        color: #fff
+    }
+
+    .risk-high {
+        background: rgba(239, 68, 68, .8);
+        color: #fff;
+        animation: blink-alert 1.5s infinite
+    }
+
+    @keyframes blink-alert {
+
+        0%,
+        100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: .5
+        }
+    }
+
+    .violation-stream {
+        max-height: 320px;
+        overflow-y: auto
+    }
+
+    .vstream-item {
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, .03);
+        display: flex;
+        gap: 10px;
+        align-items: flex-start
+    }
+
+    .severity-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        margin-top: 4px
+    }
+
+    .sev-low {
+        background: var(--accent-yellow)
+    }
+
+    .sev-medium {
+        background: var(--accent-yellow)
+    }
+
+    .sev-high {
+        background: var(--accent-red)
+    }
+</style>
+{% endblock %}
+{% block content %}
+<!-- Stats Row -->
+<div class="stats-grid" style="margin-bottom:24px">
+    <div class="stat-card purple">
+        <div class="stat-label">Active Sessions</div>
+        <div class="stat-value" id="statSessions">{{ session_count }}</div>
+        <div class="stat-icon">👥</div>
+    </div>
+    <div class="stat-card red">
+        <div class="stat-label">Total Violations</div>
+        <div class="stat-value" id="statViolations">0</div>
+        <div class="stat-icon">⚠️</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-label">Tab Switches</div>
+        <div class="stat-value" id="statTabs">0</div>
+        <div class="stat-icon">🔄</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-label">Avg. Attention</div>
+        <div class="stat-value" id="statAttention">—</div>
+        <div class="stat-icon">👁️</div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start">
+    <div>
+        <!-- My Exams Panel -->
+        <div style="margin-bottom:24px">
+            <h3 style="font-size:15px;font-weight:600;margin-bottom:12px">My Exams <span
+                    style="font-size:12px;color:var(--text-muted);font-weight:normal">({{ my_exams|length }})</span>
+            </h3>
+            {% if my_exams %}
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
+                {% for exam in my_exams %}
+                <div class="card" style="padding:14px">
+                    <div style="font-weight:600;font-size:14px;margin-bottom:4px">{{ exam.title|truncatechars:30 }}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">{{ exam.duration_minutes }}
+                        mins • {{ exam.get_status_display }}</div>
+                    <div
+                        style="background:rgba(255,255,255,0.05);padding:8px 12px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <span style="font-size:11px;color:var(--text-muted)">Access Code:</span>
+                        <code
+                            style="font-size:14px;color:var(--accent-purple);font-weight:800;letter-spacing:1px">{{ exam.access_code }}</code>
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <a href="{% url 'manage_questions' exam.id %}" class="btn btn-sm btn-outline"
+                            style="flex:1;justify-content:center">Questions</a>
+                        <form method="post" action="{% url 'delete_exam' exam.id %}" style="display:inline"
+                            onsubmit="return confirm('Delete this exam?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm"
+                                style="background:rgba(239,68,68,0.2);color:var(--accent-red);border:1px solid rgba(239,68,68,0.3)">Delete</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="card" style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">
+                No exams created yet. Click "New Exam" to get started.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Student Feeds -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3 style="font-size:15px;font-weight:600">Student Feeds</h3>
+            <span id="activeCount" style="font-size:13px;color:var(--text-muted)">{{ session_count }} active</span>
+        </div>
+
+        <div id="activeSection">
+            <h4
+                style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-color)">
+                🟢 Active</h4>
+            <div class="students-grid" id="activeGrid">
+                {% for s in active_sessions %}
+                <div class="student-card" id="card-{{ s.session_id }}">
+                    <div class="student-cam">
+                        <div class="student-cam-placeholder">
+                            <div style="font-size:40px">📷</div>
+                            <div style="font-size:12px;margin-top:8px">Awaiting feed...</div>
+                        </div>
+                        <div class="risk-badge risk-low" id="risk-{{ s.session_id }}">🟢 Low Risk</div>
+                    </div>
+                    <div class="student-info">
+                        <div style="font-weight:700;font-size:15px;color:var(--text-primary)" class="student-name-display">{{ s.student_name|default:"Unknown Student" }}</div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:2px" class="student-id-display">{{ s.university_id|default:"No ID" }} • {{ s.exam_name|default:"Exam" }}</div>
+                        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                            <span class="badge badge-red" title="Total Violations">⚠️ <span
+                                    id="vc-{{ s.session_id|slugify }}">{{ s.total_violations }}</span></span>
+                            <span class="badge badge-yellow" title="Tab Switches">🔁 <span
+                                    id="tc-{{ s.session_id|slugify }}">{{ s.tab_switches }}</span></span>
+                            <span class="badge"
+                                style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1)"
+                                id="mob-badge-{{ s.session_id|slugify }}" title="Mobile Phone Detection">📱 <span
+                                    id="mob-{{ s.session_id|slugify }}">Clear</span></span>
+                        </div>
+                        <div style="margin-top:8px">
+                            <div class="risk-meter">
+                                <div class="risk-fill" id="rm-{{ s.session_id|slugify }}" style="width:10%"></div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:10px">
+                            <a href="/analytics/session/{{ s.session_id }}/" class="btn btn-sm btn-outline"
+                                style="flex:1;justify-content:center">Analytics</a>
+                            <button onclick="terminateSession('{{ s.session_id }}')" class="btn btn-sm"
+                                style="background:rgba(239,68,68,0.2);color:var(--accent-red);border:1px solid rgba(239,68,68,0.3)">Terminate</button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div id="noActivePlaceholder"
+                    style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted)">
+                    <div style="font-size:56px;margin-bottom:12px">📡</div>
+                    <p style="font-size:16px;font-weight:600;margin-bottom:6px">No active sessions</p>
+                    <p style="font-size:13px">Students will appear here once they join their exam session.</p>
+                    <a href="/exam/create/" class="btn btn-primary" style="margin-top:20px">➕ Create Exam</a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div id="flaggedSection" style="display:none;margin-top:32px">
+            <h4
+                style="font-size:14px;font-weight:600;color:var(--accent-yellow);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-color)">
+                ⚠️ Flagged</h4>
+            <div class="students-grid" id="flaggedGrid"></div>
+        </div>
+
+        <div id="completedSection" style="display:none;margin-top:32px">
+            <h4
+                style="font-size:14px;font-weight:600;color:var(--text-muted);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-color)">
+                ✅ Completed / Terminated</h4>
+            <div class="students-grid" id="completedGrid"></div>
+        </div>
+    </div>
+
+    <!-- Live Violation Stream -->
+    <div style="position:sticky;top:80px">
+        <div class="card">
+            <div class="card-header" style="padding:14px 16px">
+                <span class="card-title">🚨 Violation Stream</span>
+                <span class="live-dot"></span>
+            </div>
+            <div class="violation-stream" id="violationStream">
+                <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+                    <div style="font-size:32px;margin-bottom:8px">✅</div>
+                    No violations yet
+                </div>
+            </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+            <div class="card-header" style="padding:14px 16px"><span class="card-title">📊 Quick Actions</span></div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:8px;padding:14px">
+                <a href="/analytics/" class="btn btn-outline" style="justify-content:center">📊 Analytics Dashboard</a>
+                <a href="/analytics/reports/" class="btn btn-outline" style="justify-content:center">📄 Generate
+                    Reports</a>
+                <a href="/api/sessions/active/" class="btn btn-outline" style="justify-content:center">🔌 API Data</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    // Register as proctor on ws proctor dashboard channel
+    const ws = new WebSocket(`ws://${location.host}/ws/proctor/dashboard/`);
+    ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'register_proctor' }));
+        console.log('Proctor dashboard WS connected');
+    };
+
+    const sessionStats = new Map();
+
+    function recalculateGlobalStats() {
+        let totalViolations = 0;
+        let totalTabs = 0;
+        let totalDistraction = 0;
+        let activeCount = 0;
+
+        sessionStats.forEach((stats, sid) => {
+            if (stats.active) {
+                totalViolations += stats.violations;
+                totalTabs += stats.tabs;
+                totalDistraction += stats.distraction;
+                activeCount++;
+            }
+        });
+
+        const avgAttention = activeCount > 0 ? Math.round(100 - (totalDistraction / activeCount)) : 100;
+
+        document.getElementById('statSessions').textContent = activeCount;
+        document.getElementById('statViolations').textContent = totalViolations;
+        document.getElementById('statTabs').textContent = totalTabs;
+        document.getElementById('statAttention').textContent = activeCount > 0 ? avgAttention + '%' : '—';
+    }
+
+    ws.onmessage = (e) => {
+        const d = JSON.parse(e.data);
+        console.log('Proctor dashboard received:', d);
+        if (d.type === 'frame_update') {
+            console.log('Processing frame update:', d);
+            handleFrameUpdate(d);
+        }
+        if (d.type === 'student_joined') {
+            console.log('Student joined:', d);
+            let card = document.getElementById(`card-${d.session_id}`);
+            if (!card) {
+                card = createStudentCard(d.session_id, d);
+                const grid = document.getElementById('activeGrid');
+                const placeholder = grid.querySelector('[id="noActivePlaceholder"]');
+                if (placeholder) placeholder.remove();
+                grid.appendChild(card);
+                activeSessions.add(d.session_id);
+                organizeCards();
+            } else {
+                // Update existing card with new info
+                const nameEl = card.querySelector('.student-name-display');
+                if (nameEl) nameEl.textContent = d.student_name || 'Unknown Student';
+                const idEl = card.querySelector('.student-id-display');
+                if (idEl) idEl.textContent = `${d.university_id || 'No ID'} • ${d.exam_name || 'Exam'}`;
+            }
+        }
+        if (d.type === 'violation_alert') {
+            console.log('Processing violation alert:', d);
+            const violation = d.violation || d;
+            addViolationToStream(violation);
+        }
+        if (d.type === 'session_completed' && d.session_id) {
+            console.log('Marking session completed from WS:', d.session_id);
+            markSessionCompleted(d.session_id);
+        }
+    };
+
+    function handleFrameUpdate(d) {
+        const sid = d.session_id; 
+        if (!sid) return;
+
+        // Update session stats for global recalculation
+        sessionStats.set(sid, {
+            violations: d.total_violations || 0,
+            tabs: d.tab_switches || 0,
+            distraction: parseFloat(d.distraction_score || 0),
+            active: !completedSessions.has(sid)
+        });
+        recalculateGlobalStats();
+
+        // Update/add student card
+        let card = document.getElementById(`card-${sid}`);
+        if (!card) {
+            card = createStudentCard(sid, d);
+            const grid = document.getElementById('activeGrid');
+            const placeholder = grid.querySelector('[id="noActivePlaceholder"]');
+            if (placeholder) placeholder.remove();
+            grid.appendChild(card);
+            // Track session as active
+            activeSessions.add(sid);
+        } else if (d.student_name && d.student_name !== "") {
+            // Update info if it arrived via frame update instead of student_joined
+            const nameEl = card.querySelector('.student-name-display');
+            if (nameEl && nameEl.textContent === 'Unknown Student') nameEl.textContent = d.student_name;
+            const idEl = card.querySelector('.student-id-display');
+            if (idEl && idEl.textContent.includes('No ID')) idEl.textContent = `${d.university_id || 'No ID'} • ${d.exam_name || 'Exam'}`;
+        }
+        // Update video feed
+        const videoEl = card.querySelector('.student-video');
+        if (d.frame_data && d.frame_processed !== false) {
+            if (videoEl) {
+                videoEl.src = 'data:image/jpeg;base64,' + d.frame_data;
+                videoEl.style.display = 'block';
+            }
+            const placeholder = card.querySelector('.video-placeholder');
+            if (placeholder) placeholder.style.display = 'none';
+        } else if (d.frame_processed === false) {
+            if (videoEl) videoEl.style.display = 'none';
+            const placeholder = card.querySelector('.video-placeholder');
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+                placeholder.innerHTML = `<div style="text-align:center;color:var(--text-muted)">
+                    <div style="font-size:24px;margin-bottom:8px">📹</div>
+                    <div style="font-size:12px">${d.heartbeat ? 'Waiting for video...' : 'Processing frame...'}</div>
+                </div>`;
+            }
+        }
+
+        // Update violation counter
+        const vc = card.querySelector('.vc');
+        if (vc) vc.textContent = d.total_violations || 0;
+        const tc = card.querySelector('.tc');
+        if (tc) tc.textContent = d.tab_switches || 0;
+
+        // Update blink count
+        const bc = card.querySelector('.blink-count');
+        if (bc) bc.textContent = d.blink_count || 0;
+
+        // Update head pose if available
+        if (d.tracking_data && d.tracking_data.head_pose) {
+            const hp = d.tracking_data.head_pose;
+            const poseEl = card.querySelector('.head-pose');
+            if (poseEl) {
+                poseEl.innerHTML = `Y:${hp.yaw?.toFixed(1) || 0}° P:${hp.pitch?.toFixed(1) || 0}° R:${hp.roll?.toFixed(1) || 0}°`;
+            }
+        }
+
+        // Update attention zone
+        if (d.attention_zone) {
+            const zoneEl = card.querySelector('.attention-zone');
+            if (zoneEl) {
+                const zoneColors = { green: '🟢', yellow: '🟡', red: '🔴' };
+                zoneEl.textContent = `${zoneColors[d.attention_zone] || '⚪'} ${d.attention_zone.toUpperCase()}`;
+            }
+        }
+
+        // Risk badge
+        const viol = d.total_violations || 0;
+        const rb = card.querySelector('.risk-badge');
+        if (rb) {
+            if (viol >= 5 || d.mobile_detected) {
+                rb.className = 'risk-badge risk-high';
+                rb.textContent = d.mobile_detected ? '🔴 Mobile Used' : '🔴 High Risk';
+            }
+            else if (viol >= 3) {
+                rb.className = 'risk-badge risk-med';
+                rb.textContent = '🟡 Medium Risk';
+            }
+            else {
+                rb.className = 'risk-badge risk-low';
+                rb.textContent = '🟢 Low Risk';
+            }
+        }
+
+        // Update mobile detection badge — FIX: use card-scoped querySelector instead of undefined sid
+        const mobBadgeContainer = card.querySelector('.mob-badge-container');
+        const mobText = card.querySelector('.mob-text');
+        if (mobBadgeContainer && mobText) {
+            if (d.mobile_detected) {
+                mobBadgeContainer.style.background = 'rgba(239,68,68,0.2)';
+                mobBadgeContainer.style.borderColor = 'rgba(239,68,68,0.3)';
+                mobBadgeContainer.style.color = '#ef4444';
+                mobText.textContent = 'Detected';
+            } else {
+                mobBadgeContainer.style.background = 'rgba(255,255,255,0.05)';
+                mobBadgeContainer.style.borderColor = 'rgba(255,255,255,0.1)';
+                mobBadgeContainer.style.color = '';
+                mobText.textContent = 'Clear';
+            }
+        }
+
+        // Update distraction score / risk meter
+        if (d.distraction_score !== undefined) {
+            const rm = card.querySelector('.risk-fill');
+            if (rm) rm.style.width = Math.min(parseFloat(d.distraction_score), 100) + '%';
+        }
+
+        organizeCards();
+    }
+
+    // Track sessions internally
+    const completedSessions = new Set();
+    const activeSessions = new Set();
+
+    function organizeCards() {
+        const cards = document.querySelectorAll('.student-card');
+        const activeGrid = document.getElementById('activeGrid');
+        const flaggedGrid = document.getElementById('flaggedGrid');
+        const completedGrid = document.getElementById('completedGrid');
+
+        let activeCount = 0;
+
+        // Remove empty placeholders momentarily to re-evaluate
+        const placeholder = document.getElementById('noActivePlaceholder');
+        if (placeholder) placeholder.remove();
+
+        cards.forEach(card => {
+            const rb = card.querySelector('.risk-badge');
+            const isFlagged = rb && (rb.textContent.includes('High') || rb.textContent.includes('Medium'));
+            const sid = card.id.replace('card-', '');
+            const isCompleted = completedSessions.has(sid);
+
+            card.style.display = 'block'; // Ensure card is visible
+
+            if (isCompleted) {
+                completedGrid.appendChild(card);
+            } else if (isFlagged) {
+                flaggedGrid.appendChild(card);
+            } else {
+                activeGrid.appendChild(card);
+                activeCount++; // Count only low-risk active as perfectly "active"? No, maybe count active+flagged.
+            }
+        });
+
+        const flaggedCount = flaggedGrid.querySelectorAll('.student-card').length;
+        const totalLiveCount = activeCount + flaggedCount;
+
+        document.getElementById('flaggedSection').style.display = flaggedCount ? 'block' : 'none';
+        document.getElementById('completedSection').style.display = completedGrid.querySelectorAll('.student-card').length ? 'block' : 'none';
+
+        if (activeGrid.querySelectorAll('.student-card').length === 0) {
+            activeGrid.innerHTML = `
+                <div id="noActivePlaceholder" style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted)">
+                    <div style="font-size:56px;margin-bottom:12px">📡</div>
+                    <p style="font-size:16px;font-weight:600;margin-bottom:6px">No active sessions</p>
+                    <p style="font-size:13px">Students will appear here once they join their exam session.</p>
+                </div>
+            `;
+        }
+
+        document.getElementById('activeCount').textContent = totalLiveCount + ' active';
+    }
+
+    // Call once on page load to organize initial rendering
+    document.addEventListener('DOMContentLoaded', () => {
+        organizeCards();
+    });
+
+    function createStudentCard(sid, data = {}) {
+        const div = document.createElement('div');
+        div.className = 'student-card';
+        div.id = `card-${sid}`;
+        
+        const sName = data.student_name || 'Unknown Student';
+        const sId = data.university_id || 'No ID';
+        const eName = data.exam_name || 'Exam';
+        const startedAt = data.start_time ? new Date(data.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        div.innerHTML = `
+        <div class="student-cam">
+            <div class="student-cam-placeholder video-placeholder" style="display:flex"><div style="font-size:36px">📷</div><div style="font-size:11px;margin-top:6px">Loading...</div></div>
+            <img class="student-video" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px">
+            <div class="risk-badge risk-low">🟢 Low Risk</div>
+        </div>
+        <div class="student-info">
+            <div style="font-weight:700;font-size:15px;color:var(--text-primary)" class="student-name-display">${sName}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px" class="student-id-display">${sId} • ${eName}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Started: ${startedAt}</div>
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+                <span class="badge badge-red" title="Total Violations">⚠️ <span class="vc">0</span></span>
+                <span class="badge badge-yellow" title="Tab Switches">🔁 <span class="tc">0</span></span>
+                <span class="badge badge-blue" title="Blink Count">👁 <span class="blink-count">0</span></span>
+                <span class="badge mob-badge-container" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1)" title="Mobile Phone Detection">📱 <span class="mob-text">Clear</span></span>
+                <span class="badge" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2)" title="Attention Zone">🎯 <span class="attention-zone">GREEN</span></span>
+            </div>
+            <div style="margin-top:8px;font-size:10px;color:var(--text-muted)">
+                <div class="head-pose">Y:0° P:0° R:0°</div>
+            </div>
+            <div style="margin-top:8px"><div class="risk-meter"><div class="risk-fill" style="width:5%"></div></div></div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+                <a href="/analytics/session/${sid}/" class="btn btn-sm btn-outline" style="flex:1;justify-content:center">Analytics</a>
+                <button onclick="terminateSession('${sid}')" class="btn btn-sm" style="background:rgba(239,68,68,0.2);color:var(--accent-red);border:1px solid rgba(239,68,68,0.3)">Terminate</button>
+            </div>
+        </div>`;
+        return div;
+    }
+
+    function terminateSession(sid) {
+        if (!confirm("Are you sure you want to forcibly terminate this student's exam session?")) return;
+
+        fetch(`/monitoring/api/session/${sid}/terminate/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'reason=Terminated by Professor for suspicious activity'
+        }).then(res => res.json().then(data => ({ ok: res.ok, data }))).then(({ ok, data }) => {
+            if (ok && data.success) {
+                showToast('Session terminated successfully.', 'success');
+                markSessionCompleted(sid);
+            } else {
+                showToast(data.error || 'Error terminating session.', 'error');
+            }
+        }).catch(err => {
+            showToast('Network error: ' + err.message, 'error');
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function addViolationToStream(v) {
+        const stream = document.getElementById('violationStream');
+        const placeholder = stream.querySelector('[style*="padding:32px"]');
+        if (placeholder) placeholder.remove();
+        const el = document.createElement('div');
+        el.className = 'vstream-item';
+        el.innerHTML = `<div class="severity-dot sev-${v.severity || 'medium'}"></div>
+        <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600">${v.type || 'ALERT'}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${v.message || ''}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:3px">${new Date().toLocaleTimeString()}</div>
+        </div>`;
+        stream.prepend(el);
+        // Keep max 50
+        while (stream.children.length > 50) stream.removeChild(stream.lastChild);
+    }
+
+    ws.onclose = () => {
+        console.log('Proctor dashboard WS disconnected, reconnecting in 3s...');
+        setTimeout(() => {
+            // Reconnect instead of full page reload
+            const newWs = new WebSocket(`ws://${location.host}/ws/proctor/dashboard/`);
+            newWs.onopen = ws.onopen;
+            newWs.onmessage = ws.onmessage;
+            newWs.onclose = ws.onclose;
+        }, 3000);
+    };
+
+    // Mark a session as completed (called when exam is submitted)
+    function markSessionCompleted(sid) {
+        completedSessions.add(sid);
+        activeSessions.delete(sid);
+        
+        // Update stats to mark inactive
+        if (sessionStats.has(sid)) {
+            sessionStats.get(sid).active = false;
+            recalculateGlobalStats();
+        }
+
+        const card = document.getElementById(`card-${sid}`);
+        if (card) {
+            card.dataset.completed = 'true';
+            const rb = card.querySelector('.risk-badge');
+            if (rb) { rb.className = 'risk-badge'; rb.textContent = '✅ Completed'; rb.style.background = 'rgba(16,185,129,0.8)'; }
+        }
+        document.getElementById('statSessions').textContent = Math.max(0, parseInt(document.getElementById('statSessions').textContent) - 1);
+        organizeCards();
+    }
+</script>
+{% endblock %}

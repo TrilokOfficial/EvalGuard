@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block full_page %}
+<div class="page-centered">
+    <div class="auth-card" style="max-width:500px">
+        <div style="text-align:center;margin-bottom:28px">
+            <div
+                style="width:56px;height:56px;margin:0 auto 12px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:14px;display:flex;align-items:center;justify-content:center;padding:6px;box-shadow:0 8px 32px rgba(124,58,237,0.2)">
+                <img src="/static/logo.png" alt="EvalGuard Logo" width="48" height="48"
+                     style="object-fit:contain;border-radius:12px"
+                     onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,rgba(124,58,237,0.8),rgba(59,130,246,0.8))'">
+            </div>
+            <h2
+                style="font-size:20px;font-weight:800;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
+                Create Account</h2>
+        </div>
+        {% if messages %}{% for m in messages %}<div class="alert alert-error">{{ m }}</div>{% endfor %}{% endif %}
+        <form method="post">
+            {% csrf_token %}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div class="form-group"><label class="form-label">First Name</label><input name="first_name"
+                        class="form-control" placeholder="John"></div>
+                <div class="form-group"><label class="form-label">Last Name</label><input name="last_name"
+                        class="form-control" placeholder="Doe"></div>
+            </div>
+            <div class="form-group"><label class="form-label">Username *</label><input name="username"
+                    class="form-control" placeholder="johndoe" required></div>
+            <div class="form-group"><label class="form-label">Email</label><input type="email" name="email"
+                    class="form-control" placeholder="john@example.com"></div>
+            <div class="form-group"><label class="form-label">Password *</label><input type="password" name="password"
+                    class="form-control" placeholder="Choose a strong password" required></div>
+            <div class="form-group">
+                <label class="form-label">Role *</label>
+                <select name="role" class="form-control" required>
+                    <option value="student">🎓 Student</option>
+                    <option value="professor">👨‍🏫 Professor / Proctor</option>
+                    <option value="recruiter">👔 Recruiter</option>
+                </select>
+            </div>
+            <div class="form-group"><label class="form-label">Institution / Company</label><input name="institution"
+                    class="form-control" placeholder="University or Company name"></div>
+            <button type="submit" class="btn btn-primary"
+                style="width:100%;justify-content:center;margin-top:4px">Create Account</button>
+        </form>
+        <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-muted)">
+            Already have an account? <a href="/login/" style="color:#a78bfa;text-decoration:none;font-weight:600">Sign
+                in</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

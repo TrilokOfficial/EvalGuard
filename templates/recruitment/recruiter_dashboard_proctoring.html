@@ -1,0 +1,1468 @@
+{% extends 'base.html' %}
+{% block page_title %}Recruiter Proctoring Hub{% endblock %}
+{% block topbar_actions %}
+<span class="live-dot"></span>
+<span style="font-size:13px;margin-left:6px;color:var(--text-secondary)">Live Proctoring Active</span>
+<button class="topbar-btn" onclick="toggleMeetPanel()">
+    <span id="meet-btn-icon">📹</span> Google Meet
+</button>
+<a href="/recruitment/companies/" class="topbar-btn">🏢 Companies</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ── Dashboard Grid Layout ──────────────────── */
+    .dashboard-container {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 20px;
+        height: calc(100vh - 140px);
+        min-height: 600px;
+    }
+
+    .main-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        overflow-y: auto;
+        padding-right: 8px;
+    }
+
+    .side-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        overflow-y: auto;
+    }
+
+    /* ── Addon Modules ──────────────────────────── */
+    .addon-modules {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    .addon-card {
+        background: var(--glass);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .addon-card:hover {
+        border-color: var(--accent-purple);
+        transform: translateY(-2px);
+    }
+
+    .addon-card.active {
+        border-color: var(--accent-green);
+        background: rgba(16, 185, 129, 0.1);
+    }
+
+    .addon-icon {
+        font-size: 28px;
+        margin-bottom: 8px;
+    }
+
+    .addon-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .addon-status {
+        font-size: 10px;
+        color: var(--accent-green);
+        margin-top: 4px;
+    }
+
+    /* ── Meet Panel ─────────────────────────────── */
+    .meet-panel {
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        width: 720px;
+        height: 520px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        z-index: 200;
+        display: none;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        resize: both;
+        overflow: hidden;
+    }
+
+    .meet-panel.visible {
+        display: flex;
+    }
+
+    .meet-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .meet-title {
+        font-size: 14px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .meet-body {
+        flex: 1;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .meet-input-group {
+        display: flex;
+        gap: 8px;
+    }
+
+    .meet-input {
+        flex: 1;
+        padding: 10px 14px;
+        background: var(--glass);
+        border: 1px solid var(--glass-border);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+    }
+
+    .meet-embed {
+        flex: 1;
+        border-radius: 0 0 12px 12px;
+        overflow: hidden;
+        border: 1px solid var(--glass-border);
+        background: #000;
+        min-height: 0;
+    }
+
+    .meet-embed iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+    .meet-code-display {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        background: rgba(16,185,129,0.08);
+        border-top: 1px solid rgba(16,185,129,0.2);
+        border-bottom: 1px solid rgba(16,185,129,0.2);
+    }
+
+    .meet-code-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+
+    .meet-code-value {
+        font-size: 20px;
+        font-weight: 900;
+        letter-spacing: 4px;
+        color: var(--accent-green);
+        font-family: 'Courier New', monospace;
+    }
+
+    .meet-code-copy {
+        margin-left: auto;
+        background: none;
+        border: 1px solid var(--accent-green);
+        color: var(--accent-green);
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .meet-code-copy:hover {
+        background: var(--accent-green);
+        color: #000;
+    }
+
+    .meet-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--text-muted);
+        padding: 20px;
+        text-align: center;
+    }
+
+    /* ── Proctor Cards ──────────────────────────── */
+    .proctor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+    }
+
+    .proctor-card {
+        background: var(--glass);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.2s;
+    }
+
+    .proctor-card:hover {
+        border-color: rgba(124, 58, 237, 0.4);
+        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.15);
+    }
+
+    .proctor-card.flagged {
+        border-color: var(--accent-red);
+        animation: pulse-border 2s infinite;
+    }
+
+    @keyframes pulse-border {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+        50% { box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.2); }
+    }
+
+    .proctor-video {
+        aspect-ratio: 16/9;
+        background: #000;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .proctor-video img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .proctor-video-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--text-muted);
+    }
+
+    .proctor-overlay {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: flex;
+        gap: 6px;
+    }
+
+    .status-pill {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 700;
+        backdrop-filter: blur(8px);
+    }
+
+    .status-safe {
+        background: rgba(16, 185, 129, 0.9);
+        color: #fff;
+    }
+
+    .status-warning {
+        background: rgba(245, 158, 11, 0.9);
+        color: #fff;
+    }
+
+    .status-danger {
+        background: rgba(239, 68, 68, 0.9);
+        color: #fff;
+        animation: blink-alert 1.5s infinite;
+    }
+
+    @keyframes blink-alert {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+
+    /* ── Head Pose Animation ────────────────────── */
+    .head-pose-widget {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        width: 80px;
+        height: 80px;
+        background: rgba(0, 0, 0, 0.8);
+        border-radius: 12px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .head-pose-svg {
+        width: 50px;
+        height: 50px;
+        transition: transform 0.3s ease;
+    }
+
+    .head-pose-label {
+        font-size: 9px;
+        color: var(--text-muted);
+        margin-top: 2px;
+        text-align: center;
+    }
+
+    .pose-value {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* ── Proctor Info ───────────────────────────── */
+    .proctor-info {
+        padding: 14px;
+    }
+
+    .proctor-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .proctor-name {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .proctor-badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+
+    .proctor-metrics {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .metric-mini {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 8px;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .metric-label {
+        font-size: 9px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .metric-value {
+        font-size: 14px;
+        font-weight: 700;
+        margin-top: 2px;
+    }
+
+    .proctor-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .proctor-actions .btn {
+        flex: 1;
+        justify-content: center;
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    /* ── Metrics Dashboard ─────────────────────── */
+    .metrics-dashboard {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .metric-card {
+        background: var(--glass);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 14px;
+    }
+
+    .metric-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .metric-card-icon {
+        font-size: 16px;
+    }
+
+    .metric-card-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    /* ── Emotion Chart ──────────────────────────── */
+    .emotion-chart-container {
+        height: 120px;
+        position: relative;
+    }
+
+    .emotion-legend {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+        font-size: 10px;
+    }
+
+    .emotion-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .emotion-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    /* ── Violation Stream ───────────────────────── */
+    .violation-stream {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .violation-item {
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        transition: background 0.2s;
+    }
+
+    .violation-item:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .violation-severity {
+        width: 4px;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+
+    .violation-severity.low { background: var(--accent-green); }
+    .violation-severity.medium { background: var(--accent-yellow); }
+    .violation-severity.high { background: var(--accent-red); }
+    .violation-severity.critical { background: #ec4899; }
+
+    .violation-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .violation-type {
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 2px;
+    }
+
+    .violation-message {
+        font-size: 11px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .violation-time {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    /* ── Parrokit Agents Panel ──────────────────── */
+    .agents-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .agent-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        background: var(--glass);
+        border-radius: 10px;
+        border: 1px solid var(--glass-border);
+    }
+
+    .agent-status {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent-green);
+        box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .agent-status.idle {
+        background: var(--accent-yellow);
+        box-shadow: 0 0 8px var(--accent-yellow);
+    }
+
+    .agent-info {
+        flex: 1;
+    }
+
+    .agent-name {
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .agent-type {
+        font-size: 10px;
+        color: var(--text-muted);
+    }
+
+    .agent-load {
+        font-size: 11px;
+        color: var(--accent-blue);
+    }
+
+    /* ── Tracking Categories ────────────────────── */
+    .tracking-categories {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .category-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px;
+        background: var(--glass);
+        border-radius: 10px;
+        border: 1px solid var(--glass-border);
+    }
+
+    .category-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .category-icon {
+        font-size: 18px;
+    }
+
+    .category-name {
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .category-count {
+        font-size: 14px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .category-count.active {
+        background: var(--accent-red);
+        color: #fff;
+    }
+
+    /* ── Empty State ───────────────────────────── */
+    .empty-state {
+        text-align: center;
+        padding: 60px;
+        color: var(--text-muted);
+    }
+
+    .empty-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    /* ── Animations ─────────────────────────────── */
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    .animate-in {
+        animation: slideIn 0.3s ease;
+    }
+
+    /* ── Responsive ────────────────────────────── */
+    @media (max-width: 1200px) {
+        .dashboard-container {
+            grid-template-columns: 1fr;
+        }
+        .side-panel {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Addon Modules -->
+<div class="addon-modules">
+    <div class="addon-card active" onclick="toggleModule('proctors')">
+        <div class="addon-icon">👁️</div>
+        <div class="addon-name">Proctors</div>
+        <div class="addon-status">3 Active</div>
+    </div>
+    <div class="addon-card active" onclick="toggleModule('agents')">
+        <div class="addon-icon">🤖</div>
+        <div class="addon-name">Parrokit AI</div>
+        <div class="addon-status">5 Agents</div>
+    </div>
+    <div class="addon-card" id="meet-addon" onclick="toggleMeetPanel()">
+        <div class="addon-icon">📹</div>
+        <div class="addon-name">Google Meet</div>
+        <div class="addon-status" id="meet-status">Click to Join</div>
+    </div>
+</div>
+
+<!-- Dashboard Grid -->
+<div class="dashboard-container">
+    <!-- Main Panel: Live Proctor Feeds -->
+    <div class="main-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3 style="font-size:15px;font-weight:600">Live Candidate Monitoring</h3>
+            <div style="display:flex;gap:8px">
+                <span class="badge badge-green" id="activeCountBadge">🟢 0 Active</span>
+                <span class="badge badge-red" id="violationCountBadge">⚠️ 0 Violations</span>
+            </div>
+        </div>
+
+        <div class="proctor-grid" id="proctorGrid">
+            <div class="empty-state" id="emptyState">
+                <div class="empty-icon">📡</div>
+                <p style="font-size:16px;font-weight:600;margin-bottom:6px">Waiting for candidates...</p>
+                <p style="font-size:13px">Live monitoring feeds will appear here when candidates join.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Side Panel: Metrics & Controls -->
+    <div class="side-panel">
+        <!-- Emotion Analytics -->
+        <div class="card">
+            <div class="card-header" style="padding:14px 16px">
+                <span class="card-title">📊 Expressive Analytics</span>
+            </div>
+            <div class="card-body" style="padding:14px">
+                <div class="emotion-legend">
+                    <span class="emotion-item"><span class="emotion-dot" style="background:#10b981"></span>Happy</span>
+                    <span class="emotion-item"><span class="emotion-dot" style="background:#3b82f6"></span>Sad</span>
+                    <span class="emotion-item"><span class="emotion-dot" style="background:#ef4444"></span>Angry</span>
+                    <span class="emotion-item"><span class="emotion-dot" style="background:#f59e0b"></span>Surprise</span>
+                    <span class="emotion-item"><span class="emotion-dot" style="background:#8b5cf6"></span>Disgust</span>
+                    <span class="emotion-item"><span class="emotion-dot" style="background:#64748b"></span>Neutral</span>
+                </div>
+                <div class="emotion-chart-container">
+                    <canvas id="emotionChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Metrics -->
+        <div class="card">
+            <div class="card-header" style="padding:14px 16px">
+                <span class="card-title">📈 Proctoring Metrics</span>
+            </div>
+            <div class="card-body" style="padding:14px">
+                <div class="metrics-dashboard">
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <span class="metric-card-icon">👤</span>
+                            <span class="metric-card-title">Face Detection</span>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:4px">
+                            <span style="font-size:24px;font-weight:700" id="faceDetectionRate">100</span>
+                            <span style="font-size:12px;color:var(--text-muted)">%</span>
+                        </div>
+                        <div class="risk-meter" style="margin-top:8px">
+                            <div class="risk-fill" id="faceMeter" style="width:100%"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <span class="metric-card-icon">🎯</span>
+                            <span class="metric-card-title">Attention Score</span>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:4px">
+                            <span style="font-size:24px;font-weight:700" id="attentionScore">--</span>
+                            <span style="font-size:12px;color:var(--text-muted)">avg</span>
+                        </div>
+                        <div class="risk-meter" style="margin-top:8px">
+                            <div class="risk-fill" id="attentionMeter" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <span class="metric-card-icon">📱</span>
+                            <span class="metric-card-title">Mobile Detection</span>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:4px">
+                            <span style="font-size:24px;font-weight:700" id="mobileDetectionCount">0</span>
+                            <span style="font-size:12px;color:var(--text-muted)">events</span>
+                        </div>
+                        <div class="risk-meter" style="margin-top:8px">
+                            <div class="risk-fill" id="mobileMeter" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-header">
+                            <span class="metric-card-icon">😵</span>
+                            <span class="metric-card-title">Distraction Events</span>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:4px">
+                            <span style="font-size:24px;font-weight:700" id="distractionCount">0</span>
+                            <span style="font-size:12px;color:var(--text-muted)">incidents</span>
+                        </div>
+                        <div class="risk-meter" style="margin-top:8px">
+                            <div class="risk-fill" id="distractionMeter" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tracking Categories -->
+        <div class="card">
+            <div class="card-header" style="padding:14px 16px">
+                <span class="card-title">⚠️ Violation Categories</span>
+            </div>
+            <div class="card-body" style="padding:14px">
+                <div class="tracking-categories">
+                    <div class="category-item">
+                        <div class="category-info">
+                            <span class="category-icon">📱</span>
+                            <span class="category-name">Mobile Device</span>
+                        </div>
+                        <span class="category-count" id="mobileCatCount">0</span>
+                    </div>
+                    <div class="category-item">
+                        <div class="category-info">
+                            <span class="category-icon">😵</span>
+                            <span class="category-name">Distraction</span>
+                        </div>
+                        <span class="category-count" id="distractionCatCount">0</span>
+                    </div>
+                    <div class="category-item">
+                        <div class="category-info">
+                            <span class="category-icon">👥</span>
+                            <span class="category-name">Multiple Faces</span>
+                        </div>
+                        <span class="category-count" id="facesCatCount">0</span>
+                    </div>
+                    <div class="category-item">
+                        <div class="category-info">
+                            <span class="category-icon">🔄</span>
+                            <span class="category-name">Tab Switches</span>
+                        </div>
+                        <span class="category-count" id="tabCatCount">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parrokit Agents -->
+        <div class="card">
+            <div class="card-header" style="padding:14px 16px">
+                <span class="card-title">🤖 Parrokit AI Agents</span>
+            </div>
+            <div class="card-body" style="padding:14px">
+                <div class="agents-panel" id="agentsPanel">
+                    <div class="agent-item">
+                        <span class="agent-status"></span>
+                        <div class="agent-info">
+                            <div class="agent-name">FaceTracker-01</div>
+                            <div class="agent-type">Face Detection</div>
+                        </div>
+                        <span class="agent-load">Active</span>
+                    </div>
+                    <div class="agent-item">
+                        <span class="agent-status"></span>
+                        <div class="agent-info">
+                            <div class="agent-name">MobileGuard-02</div>
+                            <div class="agent-type">Mobile Detection</div>
+                        </div>
+                        <span class="agent-load">Active</span>
+                    </div>
+                    <div class="agent-item">
+                        <span class="agent-status"></span>
+                        <div class="agent-info">
+                            <div class="agent-name">EmotionAI-03</div>
+                            <div class="agent-type">Emotion Analysis</div>
+                        </div>
+                        <span class="agent-load">Active</span>
+                    </div>
+                    <div class="agent-item">
+                        <span class="agent-status idle"></span>
+                        <div class="agent-info">
+                            <div class="agent-name">VoiceCheck-04</div>
+                            <div class="agent-type">Voice Analysis</div>
+                        </div>
+                        <span class="agent-load">Idle</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Violation Stream -->
+        <div class="card">
+            <div class="card-header" style="padding:14px 16px">
+                <span class="card-title">🚨 Violation Stream</span>
+                <span class="live-dot"></span>
+            </div>
+            <div class="card-body" style="padding:0">
+                <div class="violation-stream" id="violationStream">
+                    <div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">
+                        <div style="font-size:24px;margin-bottom:8px">✅</div>
+                        No violations detected
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Google Meet / Jitsi Meet Panel -->
+<div class="meet-panel" id="meetPanel">
+    <div class="meet-header">
+        <span class="meet-title">
+            <span>📹</span> Google Meet Integration
+        </span>
+        <div style="display:flex;gap:8px;align-items:center">
+            <span id="meetStatusText" style="font-size:11px;color:var(--text-muted)">No active meeting</span>
+            <button onclick="toggleMeetPanel()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px">×</button>
+        </div>
+    </div>
+
+    <!-- Code display row (hidden until meeting generated) -->
+    <div class="meet-code-display" id="meetCodeRow" style="display:none">
+        <span class="meet-code-label">Meeting Code</span>
+        <span class="meet-code-value" id="meetCodeValue">--------</span>
+        <button class="meet-code-copy" onclick="copyMeetCode()" title="Copy code">📋 Copy Code</button>
+        <button class="meet-code-copy" style="margin-left:6px" onclick="copyJoinLink()" title="Copy join link">🔗 Copy Link</button>
+    </div>
+
+    <div class="meet-embed" id="meetEmbed">
+        <div class="meet-placeholder" id="meetPlaceholder">
+            <div style="font-size:48px;margin-bottom:16px">📹</div>
+            <p style="font-size:15px;font-weight:600;margin-bottom:8px">Start an Interview Meeting</p>
+            <p style="font-size:12px;opacity:0.6;margin-bottom:20px">Generate a meeting room. Candidates join using the code from the login page.</p>
+            <button class="btn btn-primary" onclick="generateMeeting()" id="generateMeetBtn">
+                🚀 Generate Meeting Room
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Templates for dynamic content -->
+<template id="proctorCardTemplate">
+    <div class="proctor-card" data-session-id="">
+        <div class="proctor-video">
+            <div class="proctor-video-placeholder">
+                <div style="font-size:36px">📷</div>
+                <div style="font-size:11px;margin-top:6px">Connecting...</div>
+            </div>
+            <div class="proctor-overlay">
+                <span class="status-pill status-safe">🟢 Focused</span>
+            </div>
+            <!-- Head Pose Widget -->
+            <div class="head-pose-widget">
+                <svg class="head-pose-svg" viewBox="0 0 50 50">
+                    <defs>
+                        <linearGradient id="headGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <!-- Head outline -->
+                    <circle cx="25" cy="20" r="12" fill="none" stroke="url(#headGrad)" stroke-width="2"/>
+                    <!-- Left eye -->
+                    <circle cx="21" cy="18" r="2" fill="#fff"/>
+                    <!-- Right eye -->
+                    <circle cx="29" cy="18" r="2" fill="#fff"/>
+                    <!-- Nose -->
+                    <path d="M25 22 L23 26 L27 26 Z" fill="#64748b"/>
+                    <!-- Mouth -->
+                    <path d="M21 30 Q25 32 29 30" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/>
+                    <!-- Direction indicator -->
+                    <circle class="gaze-indicator" cx="25" cy="20" r="4" fill="rgba(124,58,237,0.5)"/>
+                </svg>
+                <div class="head-pose-label">
+                    <span class="pose-value">0°</span> Yaw
+                </div>
+            </div>
+        </div>
+        <div class="proctor-info">
+            <div class="proctor-header">
+                <span class="proctor-name">Candidate</span>
+                <span class="badge badge-purple">Live</span>
+            </div>
+            <div class="proctor-badges">
+                <span class="badge badge-red">⚠️ <span class="violation-count">0</span></span>
+                <span class="badge badge-yellow">🔄 <span class="tab-count">0</span></span>
+                <span class="badge badge-blue">👁️ <span class="blink-count">0</span></span>
+                <span class="badge" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1)">📱 <span class="mobile-status">Clear</span></span>
+            </div>
+            <div class="proctor-metrics">
+                <div class="metric-mini">
+                    <div class="metric-label">Attention</div>
+                    <div class="metric-value attention-value" style="color:var(--accent-green)">100%</div>
+                </div>
+                <div class="metric-mini">
+                    <div class="metric-label">Distraction</div>
+                    <div class="metric-value distraction-value" style="color:var(--text-muted)">0%</div>
+                </div>
+            </div>
+            <div class="proctor-actions">
+                <button class="btn btn-sm btn-outline" onclick="viewDetails(this)">Details</button>
+                <button class="btn btn-sm btn-danger" onclick="terminateSession(this)">Terminate</button>
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="violationItemTemplate">
+    <div class="violation-item">
+        <div class="violation-severity"></div>
+        <div class="violation-content">
+            <div class="violation-type"></div>
+            <div class="violation-message"></div>
+            <div class="violation-time"></div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// WebSocket connection
+const ws = new WebSocket(`ws://${location.host}/ws/recruiter/dashboard/`);
+let activeSessions = new Map();
+let totalViolations = 0;
+let emotionData = { labels: [], datasets: [] };
+
+ws.onopen = () => {
+    console.log('Recruiter dashboard connected');
+    ws.send(JSON.stringify({ type: 'register_recruiter' }));
+    showToast('Connected to proctoring system', 'success');
+};
+
+ws.onclose = () => {
+    showToast('Connection lost. Reconnecting...', 'warning');
+    setTimeout(() => location.reload(), 3000);
+};
+
+ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'frame_update') handleFrameUpdate(data);
+    if (data.type === 'violation_alert') handleViolation(data);
+    if (data.type === 'meet_update') handleMeetUpdate(data);
+    if (data.type === 'ai_overlay_detected') handleOverlayAlert(data);
+};
+
+// Emotion Chart
+const ctx = document.getElementById('emotionChart').getContext('2d');
+const emotionChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: Array(20).fill('').map((_, i) => `${i*3}s`),
+        datasets: [
+            { label: 'Happy', data: Array(20).fill(15), borderColor: '#10b981', borderWidth: 2, tension: 0.4, pointRadius: 0 },
+            { label: 'Sad', data: Array(20).fill(8), borderColor: '#3b82f6', borderWidth: 2, tension: 0.4, pointRadius: 0 },
+            { label: 'Angry', data: Array(20).fill(5), borderColor: '#ef4444', borderWidth: 2, tension: 0.4, pointRadius: 0 },
+            { label: 'Surprise', data: Array(20).fill(7), borderColor: '#f59e0b', borderWidth: 2, tension: 0.4, pointRadius: 0 },
+            { label: 'Neutral', data: Array(20).fill(60), borderColor: '#64748b', borderWidth: 2, tension: 0.4, pointRadius: 0, borderDash: [5,5] },
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { min: 0, max: 100, display: false },
+            x: { display: false }
+        }
+    }
+});
+
+function handleFrameUpdate(data) {
+    const sessionId = data.session_id;
+    let card = document.querySelector(`.proctor-card[data-session-id="${sessionId}"]`);
+    
+    if (!card) {
+        card = createProctorCard(sessionId);
+        document.getElementById('proctorGrid').appendChild(card);
+        document.getElementById('emptyState').style.display = 'none';
+    }
+
+    // Update video feed
+    if (data.frame_data) {
+        const img = card.querySelector('.proctor-video img') || document.createElement('img');
+        img.src = 'data:image/jpeg;base64,' + data.frame_data;
+        const placeholder = card.querySelector('.proctor-video-placeholder');
+        if (placeholder) placeholder.remove();
+        if (!card.querySelector('.proctor-video img')) {
+            card.querySelector('.proctor-video').appendChild(img);
+        }
+    }
+
+    // Update badges
+    card.querySelector('.violation-count').textContent = data.total_violations || 0;
+    card.querySelector('.tab-count').textContent = data.tab_switches || 0;
+    card.querySelector('.blink-count').textContent = data.blink_count || 0;
+
+    // Update mobile status
+    const mobileBadge = card.querySelector('.mobile-status');
+    if (data.mobile_detected) {
+        mobileBadge.textContent = 'Detected!';
+        mobileBadge.parentElement.classList.add('badge-red');
+        mobileBadge.parentElement.classList.remove('badge');
+    } else {
+        mobileBadge.textContent = 'Clear';
+        mobileBadge.parentElement.classList.remove('badge-red');
+        mobileBadge.parentElement.classList.add('badge');
+    }
+
+    // Update attention metrics
+    const attentionValue = card.querySelector('.attention-value');
+    const distractionValue = card.querySelector('.distraction-value');
+    let attention = 100;
+    let distraction = 0;
+
+    if (data.tracking_data?.zone_info) {
+        const zone = data.tracking_data.zone_info.current_zone;
+        if (zone === 'yellow') { attention = 70; distraction = 30; }
+        if (zone === 'red') { attention = 30; distraction = 70; }
+        if (!data.face_count) { attention = 0; distraction = 100; }
+    }
+
+    attentionValue.textContent = attention + '%';
+    attentionValue.style.color = attention > 80 ? 'var(--accent-green)' : attention > 50 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+    distractionValue.textContent = distraction + '%';
+
+    // Update status pill
+    const statusPill = card.querySelector('.status-pill');
+    if (data.mobile_detected || attention < 30) {
+        statusPill.className = 'status-pill status-danger';
+        statusPill.textContent = '🔴 Alert';
+        card.classList.add('flagged');
+    } else if (attention < 70) {
+        statusPill.className = 'status-pill status-warning';
+        statusPill.textContent = '🟡 Watch';
+        card.classList.remove('flagged');
+    } else {
+        statusPill.className = 'status-pill status-safe';
+        statusPill.textContent = '🟢 Focused';
+        card.classList.remove('flagged');
+    }
+
+    // Update head pose animation
+    if (data.tracking_data?.head_pose) {
+        updateHeadPoseAnimation(card, data.tracking_data.head_pose);
+    }
+
+    // Update emotion chart
+    if (data.emotion) {
+        updateEmotionChart(data.emotion);
+    }
+
+    // Update metrics
+    updateDashboardMetrics(data);
+    activeSessions.set(sessionId, data);
+    updateCounts();
+}
+
+function createProctorCard(sessionId) {
+    const template = document.getElementById('proctorCardTemplate');
+    const card = template.content.cloneNode(true).querySelector('.proctor-card');
+    card.dataset.sessionId = sessionId;
+    card.querySelector('.proctor-name').textContent = sessionId.substring(0, 12) + '...';
+    return card;
+}
+
+function updateHeadPoseAnimation(card, headPose) {
+    const svg = card.querySelector('.head-pose-svg');
+    const gazeIndicator = svg.querySelector('.gaze-indicator');
+    const poseValue = card.querySelector('.pose-value');
+    
+    const yaw = headPose.yaw || 0;
+    const pitch = headPose.pitch || 0;
+    
+    // Update gaze indicator position based on yaw/pitch
+    const offsetX = Math.max(-10, Math.min(10, yaw / 3));
+    const offsetY = Math.max(-8, Math.min(8, pitch / 3));
+    gazeIndicator.setAttribute('cx', 25 + offsetX);
+    gazeIndicator.setAttribute('cy', 20 + offsetY);
+    
+    // Update color based on zone
+    const zone = headPose.zone || 'green';
+    if (zone === 'red') {
+        gazeIndicator.setAttribute('fill', 'rgba(239,68,68,0.6)');
+    } else if (zone === 'yellow') {
+        gazeIndicator.setAttribute('fill', 'rgba(245,158,11,0.6)');
+    } else {
+        gazeIndicator.setAttribute('fill', 'rgba(124,58,237,0.5)');
+    }
+    
+    // Update pose value
+    poseValue.textContent = Math.round(yaw) + '°';
+    
+    // Apply 3D rotation effect to SVG
+    svg.style.transform = `rotateY(${yaw}deg) rotateX(${-pitch}deg)`;
+}
+
+function updateEmotionChart(emotion) {
+    // Shift data and add new values
+    emotionChart.data.datasets.forEach(dataset => {
+        dataset.data.shift();
+    });
+    
+    emotionChart.data.datasets[0].data.push(emotion.Happy || 15);
+    emotionChart.data.datasets[1].data.push(emotion.Sad || 8);
+    emotionChart.data.datasets[2].data.push(emotion.Angry || 5);
+    emotionChart.data.datasets[3].data.push(emotion.Surprise || 7);
+    emotionChart.data.datasets[4].data.push(emotion.Neutral || 60);
+    
+    emotionChart.update('none');
+}
+
+function updateDashboardMetrics(data) {
+    // Update mobile detection count
+    const mobileCount = Array.from(activeSessions.values()).filter(s => s.mobile_detected).length;
+    document.getElementById('mobileDetectionCount').textContent = mobileCount;
+    document.getElementById('mobileMeter').style.width = (mobileCount * 20) + '%';
+    document.getElementById('mobileCatCount').textContent = mobileCount;
+    if (mobileCount > 0) {
+        document.getElementById('mobileCatCount').classList.add('active');
+    }
+
+    // Update distraction
+    const totalDistractions = Array.from(activeSessions.values()).reduce((sum, s) => {
+        return sum + (s.tracking_data?.zone_info?.current_zone === 'red' ? 1 : 0);
+    }, 0);
+    document.getElementById('distractionCount').textContent = totalDistractions;
+    document.getElementById('distractionMeter').style.width = (totalDistractions * 10) + '%';
+
+    // Update attention score (average)
+    const sessions = Array.from(activeSessions.values());
+    if (sessions.length > 0) {
+        const avgAttention = sessions.reduce((sum, s) => {
+            const zone = s.tracking_data?.zone_info?.current_zone;
+            return sum + (zone === 'green' ? 100 : zone === 'yellow' ? 70 : zone === 'red' ? 30 : 0);
+        }, 0) / sessions.length;
+        document.getElementById('attentionScore').textContent = Math.round(avgAttention);
+        document.getElementById('attentionMeter').style.width = avgAttention + '%';
+    }
+
+    // Update violation counts
+    const violations = data.total_violations || 0;
+    document.getElementById('tabCatCount').textContent = data.tab_switches || 0;
+}
+
+function handleViolation(data) {
+    totalViolations++;
+    updateCounts();
+    
+    // Add to violation stream
+    const stream = document.getElementById('violationStream');
+    const placeholder = stream.querySelector('[style*="padding:24px"]');
+    if (placeholder) placeholder.remove();
+    
+    const template = document.getElementById('violationItemTemplate');
+    const item = template.content.cloneNode(true).querySelector('.violation-item');
+    
+    item.querySelector('.violation-severity').classList.add(data.severity || 'medium');
+    item.querySelector('.violation-type').textContent = data.type || 'Violation';
+    item.querySelector('.violation-message').textContent = data.message || '';
+    item.querySelector('.violation-time').textContent = new Date().toLocaleTimeString();
+    
+    stream.prepend(item);
+    
+    // Keep max 50 items
+    while (stream.children.length > 50) {
+        stream.removeChild(stream.lastChild);
+    }
+    
+    // Play alert sound
+    playAlertSound(data.severity);
+}
+
+function playAlertSound(severity) {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.type = severity === 'high' || severity === 'critical' ? 'sawtooth' : 'sine';
+        osc.frequency.setValueAtTime(severity === 'high' ? 440 : 600, ctx.currentTime);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.3);
+        osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {}
+}
+
+function updateCounts() {
+    const activeCount = activeSessions.size;
+    document.getElementById('activeCountBadge').textContent = `🟢 ${activeCount} Active`;
+    document.getElementById('violationCountBadge').textContent = `⚠️ ${totalViolations} Violations`;
+    document.getElementById('activeCandidatesCount').textContent = activeCount;
+    document.getElementById('totalViolationsCount').textContent = totalViolations;
+}
+
+function toggleMeetPanel() {
+    const panel = document.getElementById('meetPanel');
+    const addon = document.getElementById('meet-addon');
+    panel.classList.toggle('visible');
+    addon.classList.toggle('active');
+    
+    if (panel.classList.contains('visible')) {
+        document.getElementById('meet-status').textContent = 'Connected';
+    } else {
+        document.getElementById('meet-status').textContent = 'Click to Join';
+    }
+}
+
+function joinMeet() {
+    const link = document.getElementById('meetLinkInput').value.trim();
+    if (!link) {
+        showToast('Please enter a valid Meet link', 'error');
+        return;
+    }
+    
+    // Open Meet in new window/tab (iframe embedding is blocked by Google)
+    window.open(link, '_blank', 'width=1200,height=800,noopener,noreferrer');
+    
+    // Update UI to show active status
+    const embed = document.getElementById('meetEmbed');
+    embed.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-muted);padding:20px;text-align:center;background:rgba(16,185,129,0.1)">
+            <div style="font-size:40px;margin-bottom:12px">📹</div>
+            <p style="font-size:14px;margin-bottom:8px;color:var(--accent-green)">Google Meet Opened</p>
+            <p style="font-size:12px;opacity:0.7">Meeting launched in new window</p>
+            <a href="${link}" target="_blank" class="btn btn-sm btn-primary" style="margin-top:16px;text-decoration:none">
+                Reopen Meeting
+            </a>
+        </div>
+    `;
+    
+    // Notify WebSocket
+    ws.send(JSON.stringify({
+        type: 'meet_link_update',
+        meet_link: link
+    }));
+    
+    document.getElementById('meet-status').textContent = 'Active';
+    document.getElementById('meet-addon').classList.add('active');
+    showToast('Google Meet opened in new window', 'success');
+}
+
+function generateMeet() {
+    // Open Google Meet in new tab to create meeting
+    window.open('https://meet.google.com/new', '_blank');
+    showToast('Create a meeting and paste the link above', 'info');
+}
+
+function handleMeetUpdate(data) {
+    if (data.meet_link) {
+        // Legacy: open in new window
+        window.open(data.meet_link, '_blank');
+    }
+}
+
+// ── Meeting Generation (Jitsi) ───────────────────
+let currentMeetingCode = null;
+let currentJoinLink = null;
+
+async function generateMeeting() {
+    const btn = document.getElementById('generateMeetBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Generating...';
+
+    try {
+        const resp = await fetch('/recruitment/meeting/create/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' },
+        });
+        if (!resp.ok) throw new Error('Failed');
+        const data = await resp.json();
+
+        currentMeetingCode = data.code;
+        currentJoinLink = location.origin + data.join_url;
+
+        // Show code
+        document.getElementById('meetCodeValue').textContent = data.code;
+        document.getElementById('meetCodeRow').style.display = 'flex';
+        document.getElementById('meetStatusText').textContent = 'Meeting Active';
+        document.getElementById('meet-status').textContent = 'Active';
+        document.getElementById('meet-addon').classList.add('active');
+
+        // Embed Jitsi iframe
+        const embed = document.getElementById('meetEmbed');
+        embed.innerHTML = `<iframe src="${data.jitsi_url}#userInfo.displayName=Recruiter&config.prejoinPageEnabled=false&config.disableDeepLinking=true" allow="camera; microphone; fullscreen; display-capture"></iframe>`;
+
+        // Notify via WS
+        ws.send(JSON.stringify({ type: 'meet_link_update', meet_link: data.jitsi_url, code: data.code }));
+        showToast(`Meeting created! Share code: ${data.code}`, 'success');
+    } catch (err) {
+        showToast('Failed to generate meeting room', 'error');
+        btn.disabled = false;
+        btn.textContent = '🚀 Generate Meeting Room';
+    }
+}
+
+function copyMeetCode() {
+    if (!currentMeetingCode) return;
+    navigator.clipboard.writeText(currentMeetingCode)
+        .then(() => showToast('Meeting code copied!', 'success'))
+        .catch(() => { /* fallback */ });
+}
+
+function copyJoinLink() {
+    if (!currentJoinLink) return;
+    navigator.clipboard.writeText(currentJoinLink)
+        .then(() => showToast('Join link copied!', 'success'))
+        .catch(() => { /* fallback */ });
+}
+
+function getCookie(name) {
+    const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+    return v ? v[2] : null;
+}
+
+// ── AI Overlay Alert Handler ─────────────────────
+function handleOverlayAlert(data) {
+    const { session_id, candidate_name, overlay_type, confidence } = data;
+
+    // Find or create proctor card
+    const card = document.querySelector(`.proctor-card[data-session-id="${session_id}"]`);
+    if (card) {
+        card.classList.add('flagged');
+        const statusPill = card.querySelector('.status-pill');
+        statusPill.className = 'status-pill status-danger';
+        statusPill.textContent = '🤖 AI OVERLAY';
+
+        // Add overlay badge
+        const badges = card.querySelector('.proctor-badges');
+        let overlayBadge = card.querySelector('.overlay-badge');
+        if (!overlayBadge) {
+            overlayBadge = document.createElement('span');
+            overlayBadge.className = 'badge overlay-badge';
+            overlayBadge.style.cssText = 'background:rgba(236,72,153,0.2);border:1px solid #ec4899;color:#ec4899;animation:blink-alert 1s infinite';
+            badges.appendChild(overlayBadge);
+        }
+        overlayBadge.textContent = `🤖 ${overlay_type || 'AI Overlay'}`;
+    }
+
+    // Add to violation stream
+    const stream = document.getElementById('violationStream');
+    const placeholder = stream.querySelector('[style*="padding:24px"]');
+    if (placeholder) placeholder.remove();
+
+    const item = document.createElement('div');
+    item.className = 'violation-item';
+    item.innerHTML = `
+        <div class="violation-severity critical" style="background:#ec4899"></div>
+        <div class="violation-content">
+            <div class="violation-type" style="color:#ec4899">🤖 AI Overlay Detected</div>
+            <div class="violation-message">${candidate_name || 'Candidate'} — ${overlay_type || 'Unknown AI tool'} (${Math.round((confidence||0)*100)}% confidence)</div>
+            <div class="violation-time">${new Date().toLocaleTimeString()}</div>
+        </div>
+    `;
+    stream.prepend(item);
+
+    showToast(`⚠️ AI overlay on ${candidate_name || 'candidate'}: ${overlay_type || 'unknown tool'}`, 'error');
+    playAlertSound('critical');
+}
+
+function toggleModule(module) {
+    showToast(`${module} module toggled`, 'info');
+}
+
+function viewDetails(btn) {
+    const card = btn.closest('.proctor-card');
+    const sessionId = card.dataset.sessionId;
+    window.open(`/analytics/session/${sessionId}/`, '_blank');
+}
+
+function terminateSession(btn) {
+    const card = btn.closest('.proctor-card');
+    const sessionId = card.dataset.sessionId;
+    
+    if (!confirm('Are you sure you want to terminate this session?')) return;
+    
+    ws.send(JSON.stringify({
+        type: 'terminate_session',
+        session_id: sessionId,
+        reason: 'Terminated by recruiter'
+    }));
+    
+    card.remove();
+    activeSessions.delete(sessionId);
+    updateCounts();
+    
+    if (activeSessions.size === 0) {
+        document.getElementById('emptyState').style.display = 'block';
+    }
+    
+    showToast('Session terminated', 'warning');
+}
+
+// Close meet panel when clicking outside
+document.addEventListener('click', (e) => {
+    const panel = document.getElementById('meetPanel');
+    const addon = document.getElementById('meet-addon');
+    if (panel.classList.contains('visible') && 
+        !panel.contains(e.target) && 
+        !addon.contains(e.target)) {
+        toggleMeetPanel();
+    }
+});
+</script>
+{% endblock %}

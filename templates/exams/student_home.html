@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block page_title %}Student Portal{% endblock %}
+{% block topbar_actions %}
+<a href="/exam/join/" class="topbar-btn primary">➕ Join Exam</a>
+{% endblock %}
+{% block content %}
+<div class="stats-grid" style="margin-bottom:24px">
+    <div class="stat-card purple"><div class="stat-label">My Exams</div><div class="stat-value">{{ sessions|length }}</div><div class="stat-icon">📝</div></div>
+    <div class="stat-card green"><div class="stat-label">Completed</div><div class="stat-value">{% for s in sessions %}{% if s.status == 'completed' %}1{% endif %}{% endfor %}</div><div class="stat-icon">✅</div></div>
+</div>
+<div class="card">
+    <div class="card-header"><span class="card-title">Recent Sessions</span><a href="/exam/join/" class="btn btn-primary btn-sm">Join New Exam</a></div>
+    <div class="card-body" style="padding:0">
+        {% if sessions %}
+        <table class="table">
+            <thead><tr><th>Exam</th><th>Status</th><th>Violations</th><th>Started</th><th>Completed</th><th>Action</th></tr></thead>
+            <tbody>
+            {% for s in sessions %}
+            <tr>
+                <td><strong>{{ s.exam.title }}</strong><br><small style="color:var(--text-muted)">{{ s.exam.professor.username }}</small></td>
+                <td><span class="badge badge-{% if s.status == 'completed' %}green{% elif s.status == 'active' %}blue{% else %}yellow{% endif %}">{{ s.status }}</span></td>
+                <td>{{ s.violation_count }}</td>
+                <td>{{ s.started_at|default:"—" }}</td>
+                <td>{{ s.completed_at|default:"—" }}</td>
+                <td>
+    {% if s.status == 'completed' %}
+        <span class="badge badge-green">✅ Completed</span>
+    {% elif s.status == 'active' %}
+        <a href="/exam/{{ s.exam.id }}/session/{{ s.id }}/" class="btn btn-sm btn-primary">Continue Exam</a>
+    {% else %}
+        <a href="/exam/{{ s.exam.id }}/session/{{ s.id }}/" class="btn btn-sm btn-outline">Open</a>
+    {% endif %}
+</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding:48px;text-align:center;color:var(--text-muted)">
+            <div style="font-size:48px;margin-bottom:12px">📭</div>
+            <p>No exam sessions yet. <a href="/exam/join/" style="color:#a78bfa">Join an exam</a> to get started.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    // Dynamically update the metrics every 10 seconds
+    setInterval(() => {
+        fetch(window.location.href)
+            .then(res => res.text())
+            .then(html => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const newGrid = doc.querySelector('.stats-grid');
+                if (newGrid) document.querySelector('.stats-grid').innerHTML = newGrid.innerHTML;
+                
+                const newCardBody = doc.querySelector('.card-body');
+                if (newCardBody) document.querySelector('.card-body').innerHTML = newCardBody.innerHTML;
+            })
+            .catch(err => console.error("Failed to dynamically update student home:", err));
+    }, 10000);
+</script>
+{% endblock %}

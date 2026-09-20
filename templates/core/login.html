@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+{% block extra_css %}
+<style>
+    .login-wrapper {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 40px 20px;
+        flex-wrap: wrap;
+    }
+
+    .auth-card {
+        width: 400px;
+        flex-shrink: 0;
+    }
+
+    .candidate-card {
+        width: 380px;
+        flex-shrink: 0;
+        background: var(--glass);
+        border: 1px solid rgba(20, 184, 166, 0.3);
+        border-radius: 20px;
+        padding: 32px;
+        box-shadow: 0 8px 32px rgba(20, 184, 166, 0.12);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .candidate-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #14b8a6, #0ea5e9);
+    }
+
+    .candidate-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 16px;
+        background: rgba(20,184,166,0.12);
+        border: 1px solid rgba(20,184,166,0.3);
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+    }
+
+    .candidate-title {
+        font-size: 22px;
+        font-weight: 800;
+        text-align: center;
+        background: linear-gradient(135deg, #5eead4, #38bdf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 4px;
+    }
+
+    .candidate-subtitle {
+        text-align: center;
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-bottom: 28px;
+    }
+
+    .candidate-input {
+        width: 100%;
+        padding: 12px 16px;
+        background: var(--glass);
+        border: 1px solid rgba(20,184,166,0.25);
+        border-radius: 10px;
+        color: var(--text-primary);
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+    }
+
+    .candidate-input:focus {
+        border-color: #14b8a6;
+        box-shadow: 0 0 0 3px rgba(20,184,166,0.12);
+    }
+
+    .candidate-input::placeholder {
+        color: var(--text-muted);
+        letter-spacing: normal;
+    }
+
+    .code-input {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 8px;
+        text-transform: uppercase;
+        text-align: center;
+        font-family: 'Courier New', monospace;
+    }
+
+    .btn-candidate {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #14b8a6, #0ea5e9);
+        border: none;
+        border-radius: 10px;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 8px;
+    }
+
+    .btn-candidate:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(20,184,166,0.35);
+    }
+
+    .divider-or {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0;
+        align-self: center;
+        flex-direction: column;
+        padding-top: 80px;
+    }
+
+    .divider-or span {
+        font-size: 13px;
+        color: var(--text-muted);
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .divider-or::before,
+    .divider-or::after {
+        content: '';
+        display: block;
+        width: 1px;
+        height: 60px;
+        background: var(--border-color);
+    }
+
+    .candidate-info-box {
+        margin-top: 20px;
+        padding: 14px;
+        background: rgba(20,184,166,0.06);
+        border: 1px solid rgba(20,184,166,0.15);
+        border-radius: 10px;
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.6;
+    }
+
+    .candidate-info-box strong {
+        color: #14b8a6;
+    }
+
+    @media (max-width: 900px) {
+        .login-wrapper { flex-direction: column; align-items: center; }
+        .divider-or { flex-direction: row; padding-top: 0; align-self: auto; }
+        .divider-or::before, .divider-or::after { height: 1px; width: 60px; }
+    }
+</style>
+{% endblock %}
+{% block full_page %}
+<div class="login-wrapper">
+    <!-- Existing Login Card -->
+    <div class="auth-card">
+        <div style="text-align:center;margin-bottom:32px">
+            <div
+                style="width:64px;height:64px;margin:0 auto 16px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:18px;display:flex;align-items:center;justify-content:center;padding:8px;box-shadow:0 8px 32px rgba(124,58,237,0.2)">
+                <img src="/static/logo.png" alt="EvalGuard Logo" width="56" height="56"
+                     style="object-fit:contain;border-radius:14px"
+                     onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,rgba(124,58,237,0.8),rgba(59,130,246,0.8))'">
+            </div>
+            <h2
+                style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
+                EvalGuard</h2>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:4px">Sign in to your account</p>
+        </div>
+
+        {% if messages %}{% for m in messages %}<div class="alert alert-error">{{ m }}</div>{% endfor %}{% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" placeholder="Enter your username" required
+                    autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="Enter your password" required
+                    autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">Sign
+                In</button>
+        </form>
+
+        <p style="text-align:center;margin-top:20px;font-size:13px;color:var(--text-muted)">
+            No account? <a href="/register/" style="color:#a78bfa;text-decoration:none;font-weight:600">Register
+                here</a>
+        </p>
+
+        <!-- Quick demo logins -->
+        <div
+            style="margin-top:24px;padding:16px;background:var(--glass);border-radius:10px;border:1px solid var(--glass-border)">
+            <div
+                style="font-size:11px;color:var(--text-muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">
+                Quick Demo Access</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button class="btn btn-sm btn-outline" onclick="fill('professor','prof123')">👨‍🏫 Professor</button>
+                <button class="btn btn-sm btn-outline" onclick="fill('student','student123')">🎓 Student</button>
+                <button class="btn btn-sm btn-outline" onclick="fill('recruiter','recruiter123')">👔 Recruiter</button>
+                <button class="btn btn-sm btn-outline" onclick="fill('admin','admin123')">⚙️ Admin</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider-or">
+        <span>or</span>
+    </div>
+
+    <!-- Candidate Section -->
+    <div class="candidate-card">
+        <div class="candidate-icon">🎤</div>
+        <div class="candidate-title">Join as Candidate</div>
+        <div class="candidate-subtitle">Enter your meeting code to join an interview session</div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+            <div>
+                <label style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:0.5px">Your Name</label>
+                <input type="text" id="candidateName" class="candidate-input" placeholder="e.g. John Smith" autocomplete="name">
+            </div>
+            <div>
+                <label style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:0.5px">Meeting Code</label>
+                <input type="text" id="meetingCode" class="candidate-input code-input" placeholder="AB12CD34" maxlength="8" autocomplete="off">
+            </div>
+            <button class="btn-candidate" onclick="joinAsCandidate()" id="joinBtn">
+                <span>🚀</span> Join Interview
+            </button>
+        </div>
+
+        <div class="candidate-info-box">
+            <strong>🛡️ AI Monitoring Active</strong><br>
+            This session will be monitored for AI overlay tools (Parakeet AI, FinalRound AI, etc.). Your recruiter will be notified of any anomalies in real time.
+        </div>
+    </div>
+</div>
+
+<script>
+    function fill(u, p) {
+        document.querySelector('[name=username]').value = u;
+        document.querySelector('[name=password]').value = p;
+    }
+
+    function joinAsCandidate() {
+        const name = document.getElementById('candidateName').value.trim();
+        const code = document.getElementById('meetingCode').value.trim().toUpperCase();
+
+        if (!name) {
+            alert('Please enter your name.');
+            document.getElementById('candidateName').focus();
+            return;
+        }
+        if (code.length !== 8) {
+            alert('Please enter a valid 8-character meeting code.');
+            document.getElementById('meetingCode').focus();
+            return;
+        }
+
+        const btn = document.getElementById('joinBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span> Joining...';
+
+        window.location.href = `/recruitment/meeting/join/${code}/?name=${encodeURIComponent(name)}`;
+    }
+
+    // Allow pressing Enter in code field
+    document.addEventListener('DOMContentLoaded', () => {
+        const codeInput = document.getElementById('meetingCode');
+        if (codeInput) {
+            codeInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter') joinAsCandidate();
+            });
+        }
+
+    });
+</script>
+{% endblock %}

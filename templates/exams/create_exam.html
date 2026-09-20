@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block page_title %}Create Exam{% endblock %}
+{% block content %}
+<div style="max-width:560px;margin:40px auto">
+    <div class="card">
+        <div class="card-header"><span class="card-title">📝 Create New Exam</span></div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group"><label class="form-label">Exam Title *</label><input name="title" class="form-control" placeholder="e.g. Midterm – Data Structures" required></div>
+                <div class="form-group"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="3" placeholder="Brief description of the exam..."></textarea></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="form-group"><label class="form-label">Duration (minutes) *</label><input type="number" name="duration" class="form-control" value="60" min="5" max="360" required></div>
+                    <div class="form-group"><label class="form-label">Max Violations</label><input type="number" name="max_violations" class="form-control" value="5" min="1" max="20"></div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Create Exam</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block page_title %}Manage Questions - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div style="max-width:800px;margin:20px auto">
+    <div style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+            <h2 style="font-size:20px;font-weight:700">Manage Questions</h2>
+            <div style="color:var(--text-muted);font-size:13px;margin-top:4px">Exam: {{ exam.title }}</div>
+        </div>
+        <a href="/monitoring/proctor/" class="btn btn-outline">← Back to Dashboard</a>
+    </div>
+
+    <!-- Add Question Form -->
+    <div class="card" style="margin-bottom:30px">
+        <div class="card-header"><span class="card-title">➕ Add New Question</span></div>
+        <div class="card-body">
+            <form method="post" id="addQuestionForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div style="display:grid;grid-template-columns:1fr 120px;gap:12px;margin-bottom:16px">
+                    <div class="form-group">
+                        <label class="form-label">Question Type</label>
+                        <select name="question_type" id="qTypeSelect" class="form-control"
+                            onchange="toggleMCQ(this.value)">
+                            <option value="text">Short / Long Answer (Text)</option>
+                            <option value="mcq">Multiple Choice (MCQ)</option>
+                            <option value="code">Coding Challenge</option>
+                            <option value="media">Media / File Upload</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Marks</label>
+                        <input type="number" name="marks" class="form-control" value="1" min="1" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Question Text *</label>
+                    <textarea name="text" class="form-control" rows="3" placeholder="Enter the question..."
+                        required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Attachment (Optional)</label>
+                    <input type="file" name="attachment" class="form-control">
+                </div>
+
+                <!-- MCQ Options (Hidden by default) -->
+                <div id="mcqOptions"
+                    style="display:none;background:rgba(255,255,255,0.03);padding:16px;border-radius:12px;margin-bottom:16px;border:1px solid rgba(255,255,255,0.08)">
+                    <h4 style="font-size:13px;font-weight:600;margin-bottom:12px">Multiple Choice Options</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div class="form-group"><label class="form-label">Option A</label><input type="text"
+                                name="option_a" class="form-control" placeholder="Option A text"></div>
+                        <div class="form-group"><label class="form-label">Option B</label><input type="text"
+                                name="option_b" class="form-control" placeholder="Option B text"></div>
+                        <div class="form-group"><label class="form-label">Option C</label><input type="text"
+                                name="option_c" class="form-control" placeholder="Option C text"></div>
+                        <div class="form-group"><label class="form-label">Option D</label><input type="text"
+                                name="option_d" class="form-control" placeholder="Option D text"></div>
+                    </div>
+                    <div class="form-group" style="margin-top:12px;margin-bottom:0">
+                        <label class="form-label">Correct Answer</label>
+                        <select name="correct_answer" class="form-control" style="max-width:200px">
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="justify-content:center;width:100%">Add
+                    Question</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Existing Questions -->
+    <h3 style="font-size:15px;font-weight:600;margin-bottom:14px">Existing Questions ({{ questions|length }})</h3>
+    {% for q in questions %}
+    <div class="card" style="padding:16px;margin-bottom:12px;border-left:3px solid var(--accent-purple)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div style="font-size:12px;color:var(--text-muted)">Q{{ forloop.counter }} • {{ q.get_question_type_display
+                }} • {{ q.marks }} mark(s)</div>
+        </div>
+        <div style="font-weight:600;font-size:14px;margin-bottom:10px">{{ q.text }}</div>
+
+        {% if q.question_type == 'mcq' %}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;color:var(--text-secondary)">
+            {% if q.correct_answer == 'A' %}
+            <div style="color:var(--accent-green);font-weight:600">A. {{ q.option_a }}</div>
+            {% else %}
+            <div>A. {{ q.option_a }}</div>
+            {% endif %}
+            {% if q.correct_answer == 'B' %}
+            <div style="color:var(--accent-green);font-weight:600">B. {{ q.option_b }}</div>
+            {% else %}
+            <div>B. {{ q.option_b }}</div>
+            {% endif %}
+            {% if q.correct_answer == 'C' %}
+            <div style="color:var(--accent-green);font-weight:600">C. {{ q.option_c }}</div>
+            {% else %}
+            <div>C. {{ q.option_c }}</div>
+            {% endif %}
+            {% if q.correct_answer == 'D' %}
+            <div style="color:var(--accent-green);font-weight:600">D. {{ q.option_d }}</div>
+            {% else %}
+            <div>D. {{ q.option_d }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="card" style="padding:40px;text-align:center;color:var(--text-muted)">
+        No questions have been added to this exam yet.
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    function toggleMCQ(val) {
+        const panel = document.getElementById('mcqOptions');
+        if (val === 'mcq') {
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+            // Clear inputs maybe, or leave them
+        }
+    }
+    // Run on load
+    toggleMCQ(document.getElementById('qTypeSelect').value);
+</script>
+{% endblock %}

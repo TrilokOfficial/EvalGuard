@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block page_title %}Join Exam{% endblock %}
+{% block content %}
+<div style="max-width:480px;margin:60px auto">
+    <div class="card">
+        <div class="card-header"><span class="card-title">🔑 Join an Exam</span></div>
+        <div class="card-body">
+            {% if messages %}{% for m in messages %}<div class="alert alert-error">{{ m }}</div>{% endfor %}{% endif %}
+            <p style="color:var(--text-muted);margin-bottom:20px;font-size:14px">Enter the access code provided by your professor to join the proctored exam session.</p>
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label">Exam Access Code</label>
+                    <input type="text" name="access_code" class="form-control" placeholder="e.g. EG-A1B2C3" required style="font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Join Exam →</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

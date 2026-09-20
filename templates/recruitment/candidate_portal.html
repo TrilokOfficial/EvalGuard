@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block page_title %}Candidate Portal{% endblock %}
+{% block content %}
+<div style="max-width:700px;margin:0 auto">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">👤 {{ candidate.user.get_full_name|default:candidate.user.username }}</span>
+            <span class="badge badge-{% if candidate.status == 'completed' %}green{% elif candidate.status == 'in_progress' %}blue{% else %}yellow{% endif %}">{{ candidate.status }}</span>
+        </div>
+        <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+                <div><div style="font-size:11px;color:var(--text-muted)">Job Role</div><div style="font-weight:600;margin-top:3px">{{ candidate.job_role.title }}</div></div>
+                <div><div style="font-size:11px;color:var(--text-muted)">Company</div><div style="font-weight:600;margin-top:3px">{{ candidate.job_role.company.name }}</div></div>
+                <div><div style="font-size:11px;color:var(--text-muted)">Duration</div><div style="font-weight:600;margin-top:3px">{{ candidate.job_role.assessment_duration }} minutes</div></div>
+                <div><div style="font-size:11px;color:var(--text-muted)">Applied</div><div style="font-weight:600;margin-top:3px">{{ candidate.applied_at|date:"M d, Y" }}</div></div>
+            </div>
+            <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:12px;padding:18px;margin-bottom:20px">
+                <h4 style="font-size:13px;font-weight:700;margin-bottom:8px">📋 Assessment Guidelines</h4>
+                <ul style="font-size:13px;color:var(--text-secondary);line-height:1.7;padding-left:18px">
+                    <li>Ensure your face is clearly visible to the camera at all times</li>
+                    <li>Maintain good lighting in your environment</li>
+                    <li>Do not switch tabs or open other applications</li>
+                    <li>AI proctoring monitors head pose, gaze, and behaviour</li>
+                    <li>Biometric verification is performed at session start</li>
+                </ul>
+            </div>
+            <a href="#" class="btn btn-primary" style="width:100%;justify-content:center">🚀 Begin Assessment</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

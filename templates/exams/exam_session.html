@@ -1,0 +1,864 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ exam.title }}{% endblock %}
+{% block extra_css %}
+<style>
+    .session-layout {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 20px;
+        align-items: start;
+    }
+
+    .camera-panel {
+        background: var(--glass);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .camera-feed {
+        position: relative;
+        background: #000;
+        aspect-ratio: 4/3;
+    }
+
+    #studentVideo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 0;
+        position: absolute;
+        top: 0; left: 0;
+    }
+
+    #faceCanvas {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 2;
+    }
+
+    .camera-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 3;
+    }
+
+    .attention-indicator {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        padding: 8px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        backdrop-filter: blur(10px);
+    }
+
+    .ind-green {
+        background: rgba(16, 185, 129, 0.85);
+        color: #fff;
+    }
+
+    .ind-yellow {
+        background: rgba(245, 158, 11, 0.85);
+        color: #fff;
+    }
+
+    .ind-red {
+        background: rgba(239, 68, 68, 0.85);
+        color: #fff;
+        animation: blink-alert 1s infinite;
+    }
+
+    @keyframes blink-alert {
+
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: .6;
+        }
+    }
+
+    .camera-controls {
+        padding: 12px 16px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        padding: 12px 16px;
+    }
+
+    .mini-stat {
+        text-align: center;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+    }
+
+    .mini-stat .val {
+        font-size: 22px;
+        font-weight: 800;
+    }
+
+    .mini-stat .lbl {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    .qa-panel .card {
+        margin-bottom: 16px;
+    }
+
+    .question-card {
+        padding: 20px;
+        border-left: 3px solid var(--accent-purple);
+        margin-bottom: 12px;
+        background: var(--glass);
+        border-radius: 12px;
+        border: 1px solid var(--glass-border);
+    }
+
+    .option-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: .2s;
+    }
+
+    .option-label:hover {
+        background: rgba(124, 58, 237, 0.1);
+    }
+
+    .timer-bar {
+        height: 4px;
+        background: var(--accent-green);
+        transition: width 1s linear, background .3s;
+    }
+
+    .violation-log {
+        max-height: 180px;
+        overflow-y: auto;
+    }
+
+    .vlog-item {
+        padding: 8px 12px;
+        font-size: 12px;
+        border-left: 3px solid var(--accent-yellow);
+        margin-bottom: 6px;
+        background: rgba(245, 158, 11, 0.06);
+        border-radius: 0 6px 6px 0;
+    }
+
+    .vlog-item.high {
+        border-color: var(--accent-red);
+        background: rgba(239, 68, 68, 0.06);
+    }
+
+    /* Head Pose 3D Avatar */
+    .head-avatar-container {
+        width: 80px;
+        height: 80px;
+        perspective: 400px;
+        margin: 0 auto 12px auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .head-avatar {
+        width: 50px;
+        height: 60px;
+        position: relative;
+        transform-style: preserve-3d;
+        transition: transform 0.1s ease-out;
+    }
+
+    .head-face {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 25px 25px 15px 15px;
+        background: var(--accent-purple);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        backface-visibility: hidden;
+    }
+
+    .head-face::before {
+        content: '';
+        width: 25px;
+        height: 8px;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 4px;
+        margin-top: -15px;
+        margin-bottom: 5px;
+    }
+
+    .head-face::after {
+        content: '';
+        width: 15px;
+        height: 4px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 2px;
+    }
+
+    .head-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 25px 25px 15px 15px;
+        background: #1a1a3e;
+        border: 2px solid var(--accent-purple);
+        transform: rotateY(180deg);
+        backface-visibility: hidden;
+    }
+
+    .head-indicator-green .head-face {
+        background: var(--accent-green);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .head-indicator-yellow .head-face {
+        background: var(--accent-yellow);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .head-indicator-red .head-face {
+        background: var(--accent-red);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+        <h2 style="font-size:20px;font-weight:700">{{ exam.title }}</h2>
+        <div style="color:var(--text-muted);font-size:13px;margin-top:4px">Session: {{ session.id|truncatechars:12 }}
+            &nbsp;|&nbsp; <span class="live-dot"></span> Live Proctoring Active</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+        <div style="text-align:center">
+            <div id="timer" style="font-size:24px;font-weight:800;font-variant-numeric:tabular-nums">{{
+                exam.duration_minutes }}:00</div>
+            <div style="font-size:10px;color:var(--text-muted)">Remaining</div>
+        </div>
+        <div id="timer-bar-wrap"
+            style="width:120px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;height:6px">
+            <div id="timer-bar" class="timer-bar" style="width:100%"></div>
+        </div>
+    </div>
+</div>
+
+<div class="session-layout">
+    <!-- Q&A Panel -->
+    <div class="qa-panel">
+        <div class="card">
+            <div class="card-header"><span class="card-title">📝 Questions</span><span
+                    style="font-size:12px;color:var(--text-muted)">{{ questions|length }} question(s)</span></div>
+            <div class="card-body">
+                <form id="examForm" method="post" action="{% url 'submit_exam' exam.id session.id %}"
+                    enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {% for q in questions %}
+                    <div class="question-card">
+                        <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px">
+                            Q{{ forloop.counter }} • {{ q.get_question_type_display }} • {{ q.marks }} mark(s)
+                        </div>
+                        <p style="font-weight:600;margin-bottom:14px">{{ q.text }}</p>
+                        {% if q.attachment %}
+                        <div style="margin-bottom:14px">
+                            <a href="{{ q.attachment.url }}" target="_blank" class="btn btn-sm btn-outline">📎 View
+                                Attachment</a>
+                        </div>
+                        {% endif %}
+
+                        {% if q.question_type == 'mcq' %}
+                        {% if q.option_a %}
+                        <label class="option-label"><input type="radio" name="q{{ q.id }}" value="A"
+                                style="accent-color:var(--accent-purple)"> <span>A. {{ q.option_a }}</span></label>
+                        {% endif %}
+                        {% if q.option_b %}
+                        <label class="option-label"><input type="radio" name="q{{ q.id }}" value="B"
+                                style="accent-color:var(--accent-purple)"> <span>B. {{ q.option_b }}</span></label>
+                        {% endif %}
+                        {% if q.option_c %}
+                        <label class="option-label"><input type="radio" name="q{{ q.id }}" value="C"
+                                style="accent-color:var(--accent-purple)"> <span>C. {{ q.option_c }}</span></label>
+                        {% endif %}
+                        {% if q.option_d %}
+                        <label class="option-label"><input type="radio" name="q{{ q.id }}" value="D"
+                                style="accent-color:var(--accent-purple)"> <span>D. {{ q.option_d }}</span></label>
+                        {% endif %}
+                        {% elif q.question_type == 'code' %}
+                        <textarea name="q{{ q.id }}" class="form-control" rows="8"
+                            style="font-family:monospace;background:#0f0f2a;color:#a78bfa;font-size:13px"
+                            placeholder="Write your code here..."></textarea>
+                        {% elif q.question_type == 'media' %}
+                        <input type="file" name="q{{ q.id }}_file" class="form-control"
+                            accept="image/*,video/*,application/pdf,.zip,.doc,.docx">
+                        <small style="color:var(--text-muted);display:block;margin-top:6px">Please upload your file
+                            (Image, Video, PDF, ZIP)</small>
+                        {% else %}
+                        <textarea name="q{{ q.id }}" class="form-control" rows="4"
+                            placeholder="Type your answer here..."></textarea>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div style="text-align:center;padding:40px;color:var(--text-muted)">
+                        <p>No questions available for this exam yet.</p>
+                        <p style="margin-top:8px;font-size:13px">Your proctoring session is still active and being
+                            monitored.</p>
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary"
+                        style="width:100%;justify-content:center;margin-top:8px">✅ Submit Exam</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera + Proctoring Panel -->
+    <div style="position:sticky;top:80px">
+        <div class="camera-panel" style="margin-bottom:16px">
+            <div class="camera-feed" style="position:relative;">
+                <video id="studentVideo" autoplay muted playsinline></video>
+                <canvas id="faceCanvas"></canvas>
+                <div class="camera-overlay">
+                    <div id="attentionIndicator" class="attention-indicator ind-green">🟢 Focused</div>
+                    <div style="position:absolute;bottom:8px;left:8px;font-size:10px;color:rgba(255,255,255,0.6);background:rgba(0,0,0,0.4);padding:2px 8px;border-radius:8px;" id="faceStatus">Initializing...</div>
+                </div>
+            </div>
+            <div class="stats-row">
+                <div class="mini-stat">
+                    <div class="val" id="violationCount">0</div>
+                    <div class="lbl">Violations</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="val" id="tabSwitches">0</div>
+                    <div class="lbl">Tab Switches</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="val" id="blinkCount">0</div>
+                    <div class="lbl">Blinks</div>
+                </div>
+            </div>
+            <div class="camera-controls">
+                <div
+                    style="width:8px;height:8px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 8px var(--accent-green)">
+                </div>
+                <span style="font-size:12px;color:var(--text-muted);margin-left:4px">Camera Active – AI
+                    Monitoring</span>
+            </div>
+        </div>
+
+        <!-- Head Pose Info -->
+        <div class="card" style="margin-bottom:12px;transition:border-color 0.4s" id="headPoseCard">
+            <div class="card-body" style="padding:14px">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-align:center;letter-spacing:0.5px">HEAD POSE TRACKING</div>
+                <div class="head-avatar-container">
+                    <div id="headAvatar" class="head-avatar head-indicator-green">
+                        <div class="head-face"></div>
+                        <div class="head-back"></div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin-top:8px">
+                    <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px;transition:background 0.3s" id="yawBox">
+                        <div id="yawVal" style="font-size:18px;font-weight:700;transition:color 0.3s">0°</div>
+                        <div style="font-size:10px;color:var(--text-muted)">Yaw ↔</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px;transition:background 0.3s" id="pitchBox">
+                        <div id="pitchVal" style="font-size:18px;font-weight:700;transition:color 0.3s">0°</div>
+                        <div style="font-size:10px;color:var(--text-muted)">Pitch ↕</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px;transition:background 0.3s" id="rollBox">
+                        <div id="rollVal" style="font-size:18px;font-weight:700;transition:color 0.3s">0°</div>
+                        <div style="font-size:10px;color:var(--text-muted)">Roll ↻</div>
+                    </div>
+                </div>
+                <div style="margin-top:10px;text-align:center;font-size:11px" id="gazeInfo"><span style="color:var(--text-muted)">Gaze: </span><span id="gazeDir" style="font-weight:600">—</span></div>
+            </div>
+        </div>
+
+        <!-- Distraction & Live Metrics Info -->
+        <div class="card" style="margin-bottom:12px">
+            <div class="card-body" style="padding:14px">
+                <div style="margin-bottom:10px">
+                    <div
+                        style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;font-weight:600">
+                        <span>Distraction Score</span>
+                        <span id="distractionVal">0%</span>
+                    </div>
+                    <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                        <div id="distractionBar"
+                            style="height:100%;width:0%;background:var(--accent-green);transition:width 0.3s, background 0.3s">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <canvas id="metricsChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Violation Log -->
+        <div class="card">
+            <div class="card-header" style="padding:12px 16px"><span class="card-title" style="font-size:13px">⚠️
+                    Violation Log</span></div>
+            <div class="card-body" style="padding:12px">
+                <div class="violation-log" id="violationLog">
+                    <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:16px">No violations
+                        detected yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="alertModal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+    <div
+        style="background:#1a1a3e;border:1px solid var(--accent-red);border-radius:16px;padding:32px;max-width:400px;text-align:center">
+        <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+        <h3 style="margin-bottom:8px" id="alertTitle">Violation Detected</h3>
+        <p id="alertBody" style="color:var(--text-muted);font-size:14px;margin-bottom:20px"></p>
+        <button class="btn btn-primary"
+            onclick="document.getElementById('alertModal').style.display='none'">Acknowledge</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const SESSION_ID = '{{ session.id }}';
+    const EXAM_DURATION = {{ exam.duration_minutes|default:"60" }} * 60;
+    const MAX_VIOLATIONS = {{ exam.max_violations|default:"5" }};
+    let timeLeft = EXAM_DURATION;
+    let violationCount = {{ session.violation_count|default:"0" }};
+    let tabSwitches = {{ session.tab_switch_count|default:"0" }};
+    let ws;
+
+    // Timer
+    const timerEl = document.getElementById('timer');
+    const timerBar = document.getElementById('timer-bar');
+    let isSubmitted = false;
+    function updateTimer() {
+        if (timeLeft <= 0) {
+            if (!isSubmitted) {
+                isSubmitted = true;
+                showAlert('Time Up!', 'Your exam time has expired. Submitting now...');
+                setTimeout(() => document.getElementById('examForm').submit(), 2500);
+            }
+            return;
+        }
+        const m = Math.floor(timeLeft / 60), s = timeLeft % 60;
+        timerEl.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        const pct = (timeLeft / EXAM_DURATION) * 100;
+        timerBar.style.width = pct + '%';
+        timerBar.style.background = pct > 50 ? 'var(--accent-green)' : pct > 20 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+        timeLeft--;
+    }
+    setInterval(updateTimer, 1000);
+
+    // WebSocket
+    function connectWS() {
+        ws = new WebSocket(`ws://${location.host}/ws/proctor/${SESSION_ID}/`);
+        ws.onopen = () => { 
+            ws.send(JSON.stringify({ 
+                type: 'student_joined', 
+                session_id: SESSION_ID,
+                student_name: '{{ session.student_name|escapejs }}',
+                university_id: '{{ session.university_id|escapejs }}',
+                department: '{{ session.department|escapejs }}',
+                exam_name: '{{ exam.title|escapejs }}'
+            })); 
+        };
+        ws.onmessage = (e) => {
+            const d = JSON.parse(e.data);
+            if (d.type === 'frame_analysis') { handleAnalysis(d); }
+            if (d.type === 'violation_alert') { addViolation(d); }
+            if (d.type === 'force_terminate') {
+                showAlert('Session Terminated', d.reason);
+                ws.close();
+                // Automatically submit after 3 seconds
+                setTimeout(() => document.getElementById('examForm').submit(), 3000);
+            }
+        };
+        ws.onclose = () => {
+            if (timeLeft > 0) setTimeout(connectWS, 2000);
+        };
+    }
+
+    // 3rd Party App Detection
+    function detectUnwantedExtensions() {
+        // Check for some known element signatures of browser extensions like FinalRound AI, Parakeet, etc.
+        const hasUnwanted = document.querySelector('div[id^="finalround"], div[id*="parakeet"], div[class*="parakeet"]') !== null;
+
+        // Check if screen sharing API is being illegally accessed without our permission
+        if (hasUnwanted) {
+            if (ws?.readyState === 1) ws.send(JSON.stringify({
+                type: 'tab_switch', // We reuse tab_switch handler logic or could create custom
+                session_id: SESSION_ID,
+                custom_msg: "3rd party AI Extension detected"
+            }));
+            // Show local warning too
+            addViolation({ severity: 'high', type: '3RD_PARTY_APP_DETECTED', message: 'Unauthorized screen analyzing extension detected.' });
+        }
+    }
+    // Run detection periodically
+    setInterval(detectUnwantedExtensions, 5000);
+
+    // Camera
+    let videoStream;
+    async function startCamera() {
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
+            document.getElementById('studentVideo').srcObject = videoStream;
+            setInterval(captureFrame, 1000 / 5);
+            const fs = document.getElementById('faceStatus');
+            if (fs) fs.textContent = 'Camera active • Face tracking enabled';
+        } catch (e) {
+            console.warn('Camera access denied:', e);
+            const fs = document.getElementById('faceStatus');
+            if (fs) fs.textContent = 'Camera access denied. Please enable camera permissions.';
+            showToast('Camera access denied. Please enable permissions for proctoring.', 'error');
+        }
+    }
+
+    function captureFrame() {
+        if (!videoStream || ws?.readyState !== 1) return;
+        const video = document.getElementById('studentVideo');
+        const canvas = document.createElement('canvas');
+        canvas.width = 320; canvas.height = 240;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, 320, 240);
+        ws.send(JSON.stringify({ type: 'video_frame', session_id: SESSION_ID, frame: canvas.toDataURL('image/jpeg', 0.6) }));
+    }
+
+    // Face overlay canvas drawing
+    const faceCanvas = document.getElementById('faceCanvas');
+    const faceCtx = faceCanvas.getContext('2d');
+    let lastFaceData = null;
+
+    function drawFaceOverlay(hp, faceCount) {
+        const video = document.getElementById('studentVideo');
+        faceCanvas.width = video.videoWidth || faceCanvas.offsetWidth;
+        faceCanvas.height = video.videoHeight || faceCanvas.offsetHeight;
+        faceCtx.clearRect(0, 0, faceCanvas.width, faceCanvas.height);
+        if (!faceCount || faceCount === 0) return;
+        // Draw a simple face indicator box based on head pose offset
+        const w = faceCanvas.width, h = faceCanvas.height;
+        const cx = w/2 + (hp?.yaw || 0) * w / 120;
+        const cy = h/2 + (hp?.pitch || 0) * h / 120;
+        const bw = w * 0.35, bh = h * 0.4;
+        const zone = hp?.zone || 'green';
+        const colors = { green: '#10b981', yellow: '#f59e0b', red: '#ef4444' };
+        const color = colors[zone] || '#10b981';
+        // Face box
+        faceCtx.strokeStyle = color;
+        faceCtx.lineWidth = 2.5;
+        faceCtx.strokeRect(cx - bw/2, cy - bh/2, bw, bh);
+        // Corner decorations
+        const cs = 12;
+        faceCtx.lineWidth = 4;
+        [[cx-bw/2, cy-bh/2], [cx+bw/2, cy-bh/2], [cx-bw/2, cy+bh/2], [cx+bw/2, cy+bh/2]].forEach(([x,y], i) => {
+            faceCtx.beginPath();
+            faceCtx.moveTo(x + (i%2===0?cs:-cs), y);
+            faceCtx.lineTo(x, y);
+            faceCtx.lineTo(x, y + (i<2?cs:-cs));
+            faceCtx.stroke();
+        });
+        // Eye indicators
+        const eyeY = cy - bh/6;
+        const eyeOff = bw/4;
+        [cx-eyeOff, cx+eyeOff].forEach(ex => {
+            faceCtx.beginPath();
+            faceCtx.arc(ex, eyeY, 4, 0, Math.PI*2);
+            faceCtx.fillStyle = color;
+            faceCtx.fill();
+        });
+        // Nose
+        faceCtx.beginPath();
+        faceCtx.arc(cx, cy, 3, 0, Math.PI*2);
+        faceCtx.fillStyle = color + '88';
+        faceCtx.fill();
+        // Mouth line
+        faceCtx.beginPath();
+        faceCtx.moveTo(cx - bw/5, cy + bh/4);
+        faceCtx.lineTo(cx + bw/5, cy + bh/4);
+        faceCtx.strokeStyle = color + 'aa';
+        faceCtx.lineWidth = 2;
+        faceCtx.stroke();
+        // Label
+        faceCtx.fillStyle = color;
+        faceCtx.font = 'bold 11px Inter, sans-serif';
+        faceCtx.fillText(zone.toUpperCase(), cx - bw/2, cy - bh/2 - 5);
+    }
+
+    function updateHeadPoseColors(hp) {
+        if (!hp) return;
+        const yaw = Math.abs(hp.yaw || 0);
+        const pitch = Math.abs(hp.pitch || 0);
+        const roll = Math.abs(hp.roll || 0);
+        const yawEl = document.getElementById('yawVal');
+        const pitchEl = document.getElementById('pitchVal');
+        const rollEl = document.getElementById('rollVal');
+        const yawBox = document.getElementById('yawBox');
+        const pitchBox = document.getElementById('pitchBox');
+        yawEl.style.color = yaw > 40 ? 'var(--accent-red)' : yaw > 25 ? 'var(--accent-yellow)' : 'var(--accent-green)';
+        pitchEl.style.color = pitch > 35 ? 'var(--accent-red)' : pitch > 20 ? 'var(--accent-yellow)' : 'var(--accent-green)';
+        rollEl.style.color = roll > 15 ? 'var(--accent-yellow)' : 'var(--accent-green)';
+        yawBox.style.background = yaw > 25 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.05)';
+        pitchBox.style.background = pitch > 20 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.05)';
+        const card = document.getElementById('headPoseCard');
+        const zone = hp.zone || 'green';
+        card.style.borderColor = zone === 'red' ? 'rgba(239,68,68,0.5)' : zone === 'yellow' ? 'rgba(245,158,11,0.4)' : 'rgba(16,185,129,0.3)';
+    }
+
+    function handleAnalysis(d) {
+        const td = d.tracking_data;
+        if (td?.head_pose) {
+            const hp = td.head_pose;
+            document.getElementById('yawVal').textContent = hp.yaw != null ? hp.yaw.toFixed(0) + '°' : '—';
+            document.getElementById('pitchVal').textContent = hp.pitch != null ? hp.pitch.toFixed(0) + '°' : '—';
+            document.getElementById('rollVal').textContent = hp.roll != null ? hp.roll.toFixed(0) + '°' : '—';
+            const ind = document.getElementById('attentionIndicator');
+            const avatar = document.getElementById('headAvatar');
+            const zone = hp.zone || 'green';
+            ind.className = 'attention-indicator ind-' + zone;
+            avatar.className = 'head-avatar head-indicator-' + zone;
+            avatar.style.transform = `rotateX(${-(hp.pitch || 0)}deg) rotateY(${hp.yaw || 0}deg) rotateZ(${hp.roll || 0}deg)`;
+            if (zone === 'green') ind.textContent = '🟢 Focused';
+            else if (zone === 'yellow') ind.textContent = '🟡 Distracted';
+            else ind.textContent = '🔴 Looking Away';
+            updateHeadPoseColors(hp);
+            drawFaceOverlay(hp, d.face_count || 1);
+            // Update face status
+            const fs = document.getElementById('faceStatus');
+            if (fs) fs.textContent = `${d.face_count || 0} face(s) • ${zone.toUpperCase()}`;
+
+            if (zone !== 'green' && hp.direction && (hp.direction.includes('left') || hp.direction.includes('right'))) {
+                if (!window.lastTurnAlert || (Date.now() - window.lastTurnAlert > 10000)) {
+                    showAlert('Head Movement Detected', `Please look straight at the screen. You are turning ${hp.direction.includes('left') ? 'left' : 'right'}.`, true);
+                    window.lastTurnAlert = Date.now();
+                }
+            }
+        } else if (d.face_count === 0) {
+            const fs = document.getElementById('faceStatus');
+            if (fs) fs.textContent = 'No face detected';
+            faceCtx.clearRect(0, 0, faceCanvas.width, faceCanvas.height);
+        }
+        if (td?.gaze) {
+            const g = td.gaze;
+            const gazeDir = document.getElementById('gazeDir');
+            if (gazeDir) gazeDir.textContent = `${g.horizontal}/${g.vertical}`;
+        }
+        if (td?.eye_data) { document.getElementById('blinkCount').textContent = td.eye_data.blink_count || 0; }
+
+        // Update Chart & Distraction
+        if (d.distraction_score !== undefined) {
+            const score = parseFloat(d.distraction_score).toFixed(0);
+            document.getElementById('distractionVal').textContent = score + '%';
+            const bar = document.getElementById('distractionBar');
+            bar.style.width = score + '%';
+            bar.style.background = score > 60 ? 'var(--accent-red)' : score > 30 ? 'var(--accent-yellow)' : 'var(--accent-green)';
+        }
+
+        if (td?.eye_data?.avg_ear !== undefined && td?.mouth_data?.mar !== undefined) {
+            updateMetricsChart(td.eye_data.avg_ear, td.mouth_data.mar);
+        }
+    }
+
+    function addViolation(v) {
+        // Prevent duplicate local increments if the server already counted it
+        // We'll trust the server's count, but we also want immediate UI feedback.
+        // For now, increment local count.
+        violationCount++;
+        document.getElementById('violationCount').textContent = violationCount;
+        const log = document.getElementById('violationLog');
+        const el = document.createElement('div');
+        el.className = 'vlog-item' + (v.severity === 'high' ? ' high' : '');
+        el.innerHTML = `<strong>${v.type}</strong><br>${v.message}<br><small style="color:var(--text-muted)">${new Date().toLocaleTimeString()}</small>`;
+        if (log.querySelector('[style]')) log.innerHTML = '';
+        log.prepend(el);
+
+        // Auto-termination check
+        checkViolations();
+
+        // Show auto-dismissing violation popup
+        const remaining = Math.max(0, MAX_VIOLATIONS - violationCount);
+        showAlert(`⚠️ ${v.type}`, `${v.message}\n\nYou have ${remaining} violation(s) remaining before automatic termination.`, true);
+    }
+
+    function checkViolations() {
+        if (violationCount >= MAX_VIOLATIONS && !isSubmitted) {
+            isSubmitted = true;
+            showAlert('Exam Terminated', `You have exceeded the maximum allowed violations (${MAX_VIOLATIONS}). Your exam is being automatically submitted.`, false);
+            
+            // Add a hidden input to indicate forced termination
+            const form = document.getElementById('examForm');
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'terminated';
+            input.value = 'true';
+            form.appendChild(input);
+            
+            setTimeout(() => form.submit(), 3000);
+        }
+    }
+
+    let alertTimeout;
+    function showAlert(title, body, autoDismiss = false) {
+        document.getElementById('alertTitle').textContent = title;
+        document.getElementById('alertBody').textContent = body;
+        document.getElementById('alertModal').style.display = 'flex';
+        
+        clearTimeout(alertTimeout);
+        if (autoDismiss) {
+            alertTimeout = setTimeout(() => {
+                document.getElementById('alertModal').style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    // Tab switch detection
+    let lastTabSwitchTime = 0;
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && !isSubmitted) {
+            const now = Date.now();
+            if (now - lastTabSwitchTime < 500) return;
+            lastTabSwitchTime = now;
+            tabSwitches++;
+            document.getElementById('tabSwitches').textContent = tabSwitches;
+            
+            if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'tab_switch', session_id: SESSION_ID }));
+            
+            addViolation({ type: 'Tab Switch', message: 'You switched tabs or minimized the browser.', severity: 'medium' });
+        }
+    });
+
+    // Right-click disable
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    
+    // Copy/Paste disable
+    document.addEventListener('copy', e => { e.preventDefault(); showToast('Copying is not allowed during the exam.', 'error'); });
+    document.addEventListener('paste', e => { e.preventDefault(); showToast('Pasting is not allowed during the exam.', 'error'); });
+
+    // Fullscreen Enforcement
+    function requestFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log(`Error attempting to enable fullscreen: ${err.message} (${err.name})`);
+            });
+        }
+    }
+    
+    // Click anywhere to ensure fullscreen (browsers require user interaction)
+    document.addEventListener('click', requestFullscreen, { once: true });
+    
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && !isSubmitted) {
+            addViolation({ type: 'Fullscreen Exited', message: 'You exited fullscreen mode.', severity: 'medium' });
+            
+            // Force them back in
+            setTimeout(() => {
+                if (!document.fullscreenElement && !isSubmitted) {
+                    alert("You MUST return to fullscreen to continue the exam.");
+                    requestFullscreen();
+                }
+            }, 1000);
+        }
+    });
+
+    // Chart.js Setup
+    const ctx = document.getElementById('metricsChart').getContext('2d');
+    const MAX_DATA_POINTS = 60; // Approx 60 seconds if sending 1 frame/sec, or 300 for 5fps
+    const metricsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array(MAX_DATA_POINTS).fill(''),
+            datasets: [
+                {
+                    label: 'EAR',
+                    data: Array(MAX_DATA_POINTS).fill(0.3),
+                    borderColor: '#10b981',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.2
+                },
+                {
+                    label: 'MAR',
+                    data: Array(MAX_DATA_POINTS).fill(0),
+                    borderColor: '#f59e0b',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: { display: true, position: 'top', labels: { color: '#9ca3af', font: { size: 10 }, boxWidth: 10 } }
+            },
+            scales: {
+                x: { display: false },
+                y: { display: true, min: 0, max: 0.8, ticks: { color: '#6b7280', font: { size: 9 }, stepSize: 0.2 }, grid: { color: 'rgba(255,255,255,0.05)' } }
+            }
+        }
+    });
+
+    function updateMetricsChart(ear, mar) {
+        metricsChart.data.datasets[0].data.push(ear);
+        metricsChart.data.datasets[0].data.shift();
+        metricsChart.data.datasets[1].data.push(mar);
+        metricsChart.data.datasets[1].data.shift();
+        metricsChart.update();
+    }
+
+    // Start everything
+    window.addEventListener('DOMContentLoaded', () => { 
+        connectWS(); 
+        startCamera(); 
+        document.getElementById('violationCount').textContent = violationCount;
+        document.getElementById('tabSwitches').textContent = tabSwitches;
+    });
+
+    // Clean up resources when navigating away
+    window.addEventListener('beforeunload', () => {
+        try {
+            if (ws && ws.readyState === 1) {
+                ws.close();
+            }
+        } catch (_) { }
+        try {
+            if (videoStream) {
+                videoStream.getTracks().forEach(t => t.stop());
+            }
+        } catch (_) { }
+    });
+</script>
+{% endblock %}

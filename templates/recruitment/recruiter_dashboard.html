@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block page_title %}Recruiter Hub - Live Monitoring{% endblock %}
+{% block topbar_actions %}
+<span class="live-dot"></span>
+<span style="font-size:13px;margin-left:6px;color:var(--text-secondary)">Live Monitoring Active</span>
+<a href="/recruitment/companies/" class="topbar-btn">🏢 Companies</a>
+{% endblock %}
+{% block extra_css %}
+<style>
+    .live-feed-card {
+        background: #000;
+        aspect-ratio: 16/9;
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+
+    .live-feed-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .candidate-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+    }
+
+    .sys-health-good {
+        color: var(--accent-green);
+    }
+
+    .sys-health-warn {
+        color: var(--accent-yellow);
+    }
+
+    .chart-container {
+        position: relative;
+        height: 180px;
+        width: 100%;
+    }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="stats-grid" style="margin-bottom:24px">
+    <div class="stat-card purple">
+        <div class="stat-label">Companies</div>
+        <div class="stat-value">{{ companies|length }}</div>
+        <div class="stat-icon">🏢</div>
+    </div>
+    <div class="stat-card blue">
+        <div class="stat-label">Active Candidates</div>
+        <div class="stat-value" id="activeCandidatesCount">0</div>
+        <div class="stat-icon">👤</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-label">Total Violations</div>
+        <div class="stat-value" id="totalViolationsCount">0</div>
+        <div class="stat-icon">⚠️</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-label">System Health</div>
+        <div class="stat-value sys-health-good" id="sysHealth">Optimal</div>
+        <div class="stat-icon">❤️</div>
+    </div>
+</div>
+
+<h3 style="font-size:16px;font-weight:600;margin-bottom:14px">Live Candidate Feeds & Metrics</h3>
+<div class="candidate-grid" id="recruiterGrid">
+    <div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted)" id="emptyState">
+        <div style="font-size:40px;margin-bottom:12px">📡</div>
+        <p style="font-size:16px;font-weight:600">Waiting for candidates to start assessments...</p>
+        <p style="font-size:13px">Live feeds and charts will appear here automatically.</p>
+    </div>
+</div>
+
+<!-- Hidden template for candidate cards -->
+<template id="candidateCardTemplate">
+    <div class="card p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-bold" style="font-size:14px;" class="cand-name">Candidate Session</span>
+            <span class="badge badge-purple cand-progress">In Progress</span>
+        </div>
+
+        <div class="live-feed-card mb-3">
+            <img class="cand-feed" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Video Feed">
+            <div class="position-absolute top-0 end-0 p-2">
+                <span class="badge badge-green cand-focus">🟢 Focused</span>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+            <div style="background:var(--glass);padding:8px;border-radius:8px;text-align:center">
+                <div style="font-size:11px;color:var(--text-muted)">Attention Score</div>
+                <div style="font-size:18px;font-weight:700;color:var(--accent-blue)" class="cand-attn">100%</div>
+            </div>
+            <div style="background:var(--glass);padding:8px;border-radius:8px;text-align:center">
+                <div style="font-size:11px;color:var(--text-muted)">Violations</div>
+                <div style="font-size:18px;font-weight:700;color:var(--accent-red)" class="cand-viols">0</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas class="cand-chart"></canvas>
+        </div>
+
+        <div style="font-size:12px;margin-top:12px;color:var(--text-muted);display:flex;justify-content:space-between">
+            <span>Eye Focus: <span class="cand-eye-focus fw-bold" style="color:var(--text-primary)">Stable</span></span>
+            <span>Tab Switches: <span class="cand-tabs fw-bold" style="color:var(--text-primary)">0</span></span>
+        </div>
+        <div style="margin-top:8px">
+            <button class="btn btn-sm btn-outline w-100" style="justify-content:center">View Details</button>
+        </div>
+    </div>
+</template>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const ws = new WebSocket(`ws://${location.host}/ws/proctor/dashboard_${Date.now()}/`);
+    ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'register_proctor' }));
+        document.getElementById('sysHealth').textContent = 'Optimal';
+        document.getElementById('sysHealth').className = 'stat-value sys-health-good';
+    };
+    ws.onclose = () => {
+        document.getElementById('sysHealth').textContent = 'Degraded';
+        document.getElementById('sysHealth').className = 'stat-value sys-health-warn';
+        setTimeout(() => location.reload(), 3000);
+    };
+
+    const activeSessions = new Map();
+    let totalViolations = 0;
+
+    ws.onmessage = (e) => {
+        const d = JSON.parse(e.data);
+        if (d.type === 'frame_update') handleFrameUpdate(d);
+        if (d.type === 'violation_alert') {
+            totalViolations++;
+            document.getElementById('totalViolationsCount').textContent = totalViolations;
+            showToast(`⚠️ Violation: ${d.message}`, 'warning');
+        }
+    };
+
+    function handleFrameUpdate(d) {
+        let sc = activeSessions.get(d.session_id);
+        if (!sc) {
+            const grid = document.getElementById('recruiterGrid');
+            const empty = document.getElementById('emptyState');
+            if (empty) empty.style.display = 'none';
+
+            const tpl = document.getElementById('candidateCardTemplate').content.cloneNode(true);
+            const cardEl = tpl.querySelector('.card');
+            cardEl.id = `rcard-${d.session_id}`;
+            grid.appendChild(cardEl);
+
+            const ctx = cardEl.querySelector('.cand-chart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(20).fill(''),
+                    datasets: [{
+                        label: 'Attention',
+                        data: Array(20).fill(100),
+                        borderColor: '#7c3aed',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { min: 0, max: 100, display: false }, x: { display: false } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            sc = { el: cardEl, chart: chart, attnData: Array(20).fill(100) };
+            activeSessions.set(d.session_id, sc);
+            document.getElementById('activeCandidatesCount').textContent = activeSessions.size;
+        }
+
+        // Update Frame
+        if (d.frame_data) {
+            sc.el.querySelector('.cand-feed').src = 'data:image/jpeg;base64,' + d.frame_data;
+        }
+
+        // Update stats
+        sc.el.querySelector('.cand-viols').textContent = d.total_violations || 0;
+        sc.el.querySelector('.cand-name').textContent = d.session_id.substring(0, 8);
+        sc.el.querySelector('.cand-tabs').textContent = d.tab_switches || 0;
+
+        // Attention Calc
+        let attnScore = 100;
+        if (d.tracking_data?.zone_info) {
+            const z = d.tracking_data.zone_info.current_zone;
+            if (z === 'yellow') attnScore = 70;
+            if (z === 'red') attnScore = 30;
+
+            const focusBadge = sc.el.querySelector('.cand-focus');
+            if (z === 'green') { focusBadge.className = 'badge badge-green cand-focus'; focusBadge.textContent = '🟢 Focused'; }
+            else if (z === 'yellow') { focusBadge.className = 'badge badge-yellow cand-focus'; focusBadge.textContent = '🟡 Distracted'; }
+            else { focusBadge.className = 'badge badge-red cand-focus'; focusBadge.textContent = '🔴 Looking Away'; }
+        }
+        if (!d.face_count) attnScore = 0;
+
+        sc.el.querySelector('.cand-attn').textContent = attnScore + '%';
+
+        if (d.tracking_data?.eye_data) {
+            sc.el.querySelector('.cand-eye-focus').textContent = d.tracking_data.eye_data.is_blinking ? 'Blinked' : 'Stable';
+        }
+
+        // Update Chart
+        sc.attnData.shift();
+        sc.attnData.push(attnScore);
+        sc.chart.update();
+    }
+</script>
+{% endblock %}

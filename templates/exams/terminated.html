@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block page_title %}Exam Terminated{% endblock %}
+
+{% block extra_css %}
+<style>
+    .term-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 160px);
+        padding: 20px;
+    }
+
+    .term-card {
+        background: var(--glass);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 16px;
+        padding: 40px;
+        width: 100%;
+        max-width: 500px;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 10px 40px rgba(239, 68, 68, 0.15);
+        text-align: center;
+    }
+
+    .term-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+
+    .term-title {
+        font-size: 28px;
+        font-weight: 800;
+        color: var(--accent-red);
+        margin-bottom: 12px;
+    }
+
+    .term-message {
+        color: var(--text-primary);
+        font-size: 16px;
+        margin-bottom: 24px;
+        line-height: 1.5;
+    }
+
+    .term-details {
+        background: rgba(15, 23, 42, 0.6);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 30px;
+        text-align: left;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .detail-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .detail-label {
+        color: var(--text-muted);
+    }
+    
+    .detail-value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .detail-value.red {
+        color: var(--accent-red);
+    }
+
+    .btn-home {
+        display: inline-block;
+        padding: 12px 24px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .btn-home:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="term-container">
+    <div class="term-card">
+        <div class="term-icon">🚫</div>
+        <h2 class="term-title">Exam Terminated</h2>
+        <p class="term-message">Your examination session has been automatically terminated due to excessive violations of the proctoring rules or by a direct action from the proctor.</p>
+        
+        <div class="term-details">
+            <div class="detail-row">
+                <span class="detail-label">Exam:</span>
+                <span class="detail-value">{{ exam.title }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Session ID:</span>
+                <span class="detail-value">{{ session.id|truncatechars:12 }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Status:</span>
+                <span class="detail-value red">Terminated</span>
+            </div>
+            {% if session.termination_reason %}
+            <div class="detail-row" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.1); padding-top:12px">
+                <span class="detail-label">Reason:</span>
+                <span class="detail-value" style="color:var(--text-muted); font-weight:normal">{{ session.termination_reason }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom: 24px;">Your answers up to this point have been saved and submitted to your instructor for review.</p>
+
+        <a href="{% url 'student_home' %}" class="btn-home">Return to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

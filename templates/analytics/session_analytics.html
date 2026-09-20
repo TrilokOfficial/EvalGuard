@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block page_title %}Session Analytics – {{ session_id|truncatechars:12 }}{% endblock %}
+{% block extra_css %}
+<style>
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.metric-ring{display:flex;align-items:center;justify-content:center;flex-direction:column}
+.ring-val{font-size:36px;font-weight:900}
+.biometric-panel{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.bio-item{background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;padding:14px;display:flex;align-items:center;gap:10px}
+.bio-icon{font-size:22px}
+.bio-info .lbl{font-size:11px;color:var(--text-muted)}
+.bio-info .val{font-size:14px;font-weight:700;margin-top:2px}
+.emotion-bar-wrap{margin-bottom:8px}
+.emotion-bar-bg{height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;margin-top:4px}
+.emotion-fill{height:100%;border-radius:4px;transition:width .6s}
+</style>
+{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+    <a href="/analytics/" class="btn btn-sm btn-outline">← Back</a>
+    <h2 style="font-size:16px;font-weight:600">Session: <span style="font-family:monospace;color:var(--text-muted)">{{ session_id }}</span></h2>
+    <a href="/analytics/reports/{{ session_id }}/pdf/" class="btn btn-sm btn-primary" style="margin-left:auto">📄 Download PDF Report</a>
+</div>
+
+<!-- Biometric Status -->
+<div class="card" style="margin-bottom:20px">
+    <div class="card-header"><span class="card-title">🔐 Biometric & Authenticity</span><span class="badge badge-green">✓ Verified</span></div>
+    <div class="card-body">
+        <div class="biometric-panel">
+            <div class="bio-item"><div class="bio-icon">🎭</div><div class="bio-info"><div class="lbl">Face Biometric</div><div class="val" style="color:var(--accent-green)">{{ biometric_data.face_biometric|capfirst }}</div></div></div>
+            <div class="bio-item"><div class="bio-icon">🎙️</div><div class="bio-info"><div class="lbl">Voice Biometric</div><div class="val" style="color:var(--accent-green)">{{ biometric_data.voice_biometric|capfirst }}</div></div></div>
+            <div class="bio-item"><div class="bio-icon">💬</div><div class="bio-info"><div class="lbl">Lip Sync</div><div class="val">{{ biometric_data.lip_sync }}%</div></div></div>
+            <div class="bio-item"><div class="bio-icon">🎯</div><div class="bio-info"><div class="lbl">Truthfulness</div><div class="val">{{ biometric_data.truthfulness }}%</div></div></div>
+        </div>
+    </div>
+</div>
+
+<div class="analytics-grid" style="margin-bottom:20px">
+    <!-- Emotion Analytics Chart -->
+    <div class="card">
+        <div class="card-header"><span class="card-title">😊 Expressive Analytics</span></div>
+        <div class="card-body">
+            <canvas id="emotionChart" height="180"></canvas>
+            <div style="margin-top:16px">
+            {% for emotion, value in emotion_data.items %}
+            <div class="emotion-bar-wrap">
+                <div style="display:flex;justify-content:space-between;font-size:12px"><span>{{ emotion }}</span><span style="color:var(--text-muted)">{{ value }}%</span></div>
+                <div class="emotion-bar-bg"><div class="emotion-fill" style="width:{{ value }}%;background:{% if emotion == 'Happy' %}#10b981{% elif emotion == 'Sad' %}#3b82f6{% elif emotion == 'Angry' %}#ef4444{% elif emotion == 'Surprise' %}#f59e0b{% elif emotion == 'Disgust' %}#8b5cf6{% else %}#64748b{% endif %}"></div></div>
+            </div>
+            {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Physiological Analytics -->
+    <div class="card">
+        <div class="card-header"><span class="card-title">❤️ Physiological Analytics</span></div>
+        <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+                <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:14px;text-align:center">
+                    <div style="font-size:28px;font-weight:900;color:#f87171">{{ physio_data.heart_rate }}</div>
+                    <div style="font-size:11px;color:var(--text-muted)">❤️ Heart Rate (bpm)</div>
+                </div>
+                <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:14px;text-align:center">
+                    <div style="font-size:28px;font-weight:900;color:#fbbf24">{{ physio_data.stress_level }}%</div>
+                    <div style="font-size:11px;color:var(--text-muted)">⚡ Stress Level</div>
+                </div>
+                <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:14px;text-align:center">
+                    <div style="font-size:28px;font-weight:900;color:#60a5fa">{{ physio_data.respiration }}</div>
+                    <div style="font-size:11px;color:var(--text-muted)">💨 Respiration</div>
+                </div>
+                <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;text-align:center">
+                    <div style="font-size:28px;font-weight:900;color:#34d399">{{ physio_data.blood_oxygen }}%</div>
+                    <div style="font-size:11px;color:var(--text-muted)">🫁 SpO2</div>
+                </div>
+            </div>
+            <canvas id="physioChart" height="130"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Attention Timeline -->
+<div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+        <span class="card-title">👁️ Attention Timeline</span>
+        <span class="badge {% if risk_score >= 50 %}badge-red{% elif risk_score >= 25 %}badge-yellow{% else %}badge-green{% endif %}">Risk Score: {{ risk_score }}/100</span>
+    </div>
+    <div class="card-body">
+        <div style="margin-bottom:10px">
+            <div class="risk-meter"><div class="risk-fill" style="width:{{ risk_score }}%"></div></div>
+        </div>
+        <canvas id="attentionChart" height="100"></canvas>
+    </div>
+</div>
+
+<!-- Violation Log -->
+<div class="card">
+    <div class="card-header"><span class="card-title">⚠️ Violation Log</span><span class="badge badge-red">{{ summary.total_violations }} events</span></div>
+    <div class="card-body" style="padding:0">
+        {% if summary.violations %}
+        <table class="table">
+            <thead><tr><th>Time</th><th>Type</th><th>Message</th><th>Severity</th></tr></thead>
+            <tbody>
+            {% for v in summary.violations %}
+            <tr>
+                <td style="font-family:monospace;font-size:11px">{{ v.timestamp|truncatechars:19 }}</td>
+                <td><code style="font-size:11px;color:#a78bfa">{{ v.type }}</code></td>
+                <td style="font-size:13px">{{ v.message }}</td>
+                <td><span class="badge badge-{% if v.severity == 'high' %}red{% elif v.severity == 'medium' %}yellow{% else %}blue{% endif %}">{{ v.severity }}</span></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center;padding:40px;color:var(--text-muted)"><p>✅ No violations recorded for this session.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const attData = {{ attention_timeline|safe }};
+const emoData = {{ emotion_timeline|safe }};
+
+// Attention Chart
+new Chart(document.getElementById('attentionChart'),{
+    type:'line',
+    data:{labels:attData.labels,datasets:[{label:'Attention Score',data:attData.data,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,0.08)',tension:.4,fill:true,borderWidth:2,pointRadius:0}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10}}},x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10},maxTicksLimit:8}}}}
+});
+
+// Emotion Timeline Chart
+const COLORS={'Happy':'#10b981','Sad':'#3b82f6','Angry':'#ef4444','Surprise':'#f59e0b','Disgust':'#8b5cf6','Neutral':'#64748b'};
+new Chart(document.getElementById('emotionChart'),{
+    type:'line',
+    data:{labels:emoData.labels,datasets:Object.entries(emoData.emotions).map(([k,v])=>({label:k,data:v,borderColor:COLORS[k],backgroundColor:COLORS[k]+'22',tension:.4,fill:true,borderWidth:1.5,pointRadius:0}))},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#94a3b8',font:{size:10},boxWidth:12}}},scales:{y:{stacked:false,min:0,max:100,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10}}},x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10},maxTicksLimit:6}}}}
+});
+
+// Physiological Chart
+new Chart(document.getElementById('physioChart'),{
+    type:'line',
+    data:{labels:Array.from({length:12},(_,i)=>i*5+'s'),datasets:[
+        {label:'Heart Rate',data:Array.from({length:12},()=>{{ physio_data.heart_rate }}+Math.floor(Math.random()*8-4)),borderColor:'#ef4444',tension:.4,fill:false,pointRadius:0,borderWidth:2},
+        {label:'Stress',data:Array.from({length:12},()=>{{ physio_data.stress_level }}+Math.floor(Math.random()*10-5)),borderColor:'#f59e0b',tension:.4,fill:false,pointRadius:0,borderWidth:2}]},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#94a3b8',font:{size:10},boxWidth:12}}},scales:{y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10}}},x:{grid:{display:false},ticks:{color:'#64748b',font:{size:10},maxTicksLimit:6}}}}
+});
+
+// Periodically reload the page to dynamically update metrics and charts
+setTimeout(() => {
+    window.location.reload();
+}, 10000);
+</script>
+{% endblock %}

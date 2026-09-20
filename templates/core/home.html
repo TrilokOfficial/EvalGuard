@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block full_page %}
+<div class="page-centered"
+    style="background:radial-gradient(ellipse 80% 80% at 50% -10%,rgba(124,58,237,0.18) 0%,transparent 60%)">
+    <div style="text-align:center;max-width:900px;width:100%;padding:40px 20px">
+        <!-- Logo -->
+        <a href="/register/"
+            style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:24px;text-decoration:none">
+            <img src="/static/logo.png" alt="EvalGuard Logo" width="52" height="52"
+                style="object-fit:contain; border-radius:15px;">
+            <h1
+                style="font-size:40px;font-weight:900;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
+                EvalGuard</h1>
+        </a>
+        <p
+            style="font-size:18px;color:var(--text-secondary);margin-bottom:50px;max-width:600px;margin-left:auto;margin-right:auto">
+            Advanced AI-powered exam proctoring & enterprise candidate assessment platform
+        </p>
+
+        <!-- Feature Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-bottom:48px">
+            <div class="card" style="padding:28px;text-align:left">
+                <div style="font-size:32px;margin-bottom:14px">🎓</div>
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Student Exam Proctoring</h3>
+                <p style="color:var(--text-secondary);font-size:13px;line-height:1.6">Real-time AI monitoring with head
+                    pose, gaze tracking, and automatic violation detection.</p>
+                <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px">
+                    <span class="badge badge-purple">Eye Gaze</span>
+                    <span class="badge badge-blue">Head Pose</span>
+                    <span class="badge badge-green">Tab Monitor</span>
+                </div>
+            </div>
+            <div class="card" style="padding:28px;text-align:left">
+                <div style="font-size:32px;margin-bottom:14px">👔</div>
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Enterprise Recruitment</h3>
+                <p style="color:var(--text-secondary);font-size:13px;line-height:1.6">Behavioural analytics and
+                    biometric verification for remote candidate assessment.</p>
+                <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px">
+                    <span class="badge badge-purple">Biometrics</span>
+                    <span class="badge badge-yellow">Emotion AI</span>
+                    <span class="badge badge-red">Physiological</span>
+                </div>
+            </div>
+            <div class="card" style="padding:28px;text-align:left">
+                <div style="font-size:32px;margin-bottom:14px">📊</div>
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Advanced Analytics</h3>
+                <p style="color:var(--text-secondary);font-size:13px;line-height:1.6">Meeting intelligence, emotion
+                    timelines, stress indicators, and PDF integrity reports.</p>
+                <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px">
+                    <span class="badge badge-blue">Risk Score</span>
+                    <span class="badge badge-green">PDF Reports</span>
+                    <span class="badge badge-purple">Realtime</span>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- CTA Buttons -->
+        <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+            <a href="/login/" class="btn btn-primary" style="padding:14px 32px;font-size:15px">🚀 Get Started</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

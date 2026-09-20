@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% block page_title %}Exam Integrity Reports{% endblock %}
+{% block topbar_actions %}
+<button class="topbar-btn" onclick="refreshReports()" id="refreshBtn">🔄 Refresh</button>
+{% endblock %}
+{% block extra_css %}
+<style>
+.reports-table tr { cursor: pointer; transition: background 0.15s; }
+.reports-table tr:hover td { background: rgba(124,58,237,0.08) !important; }
+.reports-table tr.selected td { background: rgba(124,58,237,0.12) !important; border-left: 3px solid var(--accent-purple); }
+.detail-panel { display:none; background:var(--glass); border:1px solid var(--border-color); border-radius:14px; padding:24px; margin-bottom:20px; animation: slideDown 0.25s ease; }
+.detail-panel.visible { display:block; }
+@keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+.detail-metric { text-align:center; padding:14px; background:rgba(255,255,255,0.04); border-radius:10px; border:1px solid rgba(255,255,255,0.06); }
+.detail-metric .val { font-size:26px; font-weight:800; }
+.detail-metric .lbl { font-size:11px; color:var(--text-muted); margin-top:4px; }
+.viol-mini { padding:6px 10px; border-radius:6px; border-left:3px solid var(--accent-yellow); background:rgba(245,158,11,0.06); margin-bottom:4px; font-size:12px; }
+.viol-mini.high { border-color:var(--accent-red); background:rgba(239,68,68,0.06); }
+.search-bar { width:280px; padding:8px 14px; background:var(--glass); border:1px solid var(--glass-border); border-radius:10px; color:var(--text-primary); font-size:13px; font-family:'Inter',sans-serif; }
+.search-bar:focus { outline:none; border-color:var(--accent-purple); }
+.filter-chip { padding:5px 14px; border-radius:20px; border:1px solid var(--glass-border); background:var(--glass); color:var(--text-secondary); font-size:12px; cursor:pointer; transition:all 0.2s; }
+.filter-chip.active { background:var(--accent-purple); border-color:var(--accent-purple); color:#fff; }
+.empty-reports { text-align:center; padding:80px 32px; color:var(--text-muted); }
+.live-badge { display:inline-flex; align-items:center; gap:6px; font-size:11px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); color:var(--accent-green); padding:3px 10px; border-radius:20px; }
+</style>
+{% endblock %}
+{% block content %}
+<!-- Summary Stats -->
+<div class="stats-grid" style="margin-bottom:24px" id="summaryStats">
+    <div class="stat-card purple">
+        <div class="stat-label">Total Sessions</div>
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-icon">📊</div>
+    </div>
+    <div class="stat-card red">
+        <div class="stat-label">High Risk Sessions</div>
+        <div class="stat-value" id="statHighRisk">0</div>
+        <div class="stat-icon">⚠️</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-label">Total Violations</div>
+        <div class="stat-value" id="statViolations">0</div>
+        <div class="stat-icon">🚨</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-label">Active Now</div>
+        <div class="stat-value" id="statActive">0</div>
+        <div class="stat-icon">🟢</div>
+    </div>
+</div>
+
+<!-- Detail Panel (shown when row clicked) -->
+<div class="detail-panel" id="detailPanel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+            <div style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;margin-bottom:4px">SESSION DETAIL</div>
+            <div style="font-weight:700;font-size:15px;font-family:monospace" id="detailSessionId">—</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <span class="live-badge" id="detailLiveBadge" style="display:none"><span class="live-dot"></span> Live</span>
+            <a id="detailPdfBtn" href="#" class="btn btn-primary btn-sm">📄 Download PDF</a>
+            <a id="detailViewBtn" href="#" class="btn btn-outline btn-sm">📈 Full Analytics</a>
+            <button onclick="document.getElementById('detailPanel').classList.remove('visible')" class="btn btn-sm btn-outline">✕</button>
+        </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        <div class="detail-metric"><div class="val" id="detailDuration">—</div><div class="lbl">Duration</div></div>
+        <div class="detail-metric"><div class="val" id="detailViolations" style="color:var(--accent-red)">—</div><div class="lbl">Violations</div></div>
+        <div class="detail-metric"><div class="val" id="detailTabs" style="color:var(--accent-yellow)">—</div><div class="lbl">Tab Switches</div></div>
+        <div class="detail-metric"><div class="val" id="detailBlinks" style="color:var(--accent-blue)">—</div><div class="lbl">Blinks</div></div>
+    </div>
+    <div id="detailViolationList" style="max-height:160px;overflow-y:auto;padding-right:4px"></div>
+</div>
+
+<!-- Reports Card -->
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">📄 Exam Integrity Reports</span>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <input type="text" class="search-bar" placeholder="🔍 Search session ID..." id="searchInput" oninput="filterTable()">
+            <div style="display:flex;gap:6px">
+                <button class="filter-chip active" data-risk="all" onclick="setRiskFilter(this,'all')">All</button>
+                <button class="filter-chip" data-risk="high" onclick="setRiskFilter(this,'high')">⚠️ High Risk</button>
+                <button class="filter-chip" data-risk="clean" onclick="setRiskFilter(this,'clean')">✅ Clean</button>
+            </div>
+            <div id="lastRefreshed" style="font-size:11px;color:var(--text-muted)"></div>
+        </div>
+    </div>
+    <div class="card-body" style="padding:0">
+        <div id="reportsTableWrap">
+            <!-- Injected by JS -->
+            <div class="empty-reports">
+                <div style="font-size:48px;margin-bottom:16px">📭</div>
+                <p style="font-size:16px;font-weight:600;margin-bottom:6px">Loading reports...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    let allSessions = [];
+    let selectedRow = null;
+    let riskFilter = 'all';
+
+    async function fetchSessions() {
+        try {
+            const res = await fetch('/analytics/api/reports/data/');
+            if (res.ok) {
+                const data = await res.json();
+                allSessions = data.sessions || [];
+                renderTable();
+                updateStats();
+                document.getElementById('lastRefreshed').textContent = 'Updated ' + new Date().toLocaleTimeString();
+            }
+        } catch (e) {
+            // Fallback to server-rendered data if API fails
+            console.warn('API fetch failed, using server data:', e);
+        }
+    }
+
+    function updateStats() {
+        document.getElementById('statTotal').textContent = allSessions.length;
+        const highRisk = allSessions.filter(s => s.total_violations >= 5).length;
+        document.getElementById('statHighRisk').textContent = highRisk;
+        const totalViol = allSessions.reduce((acc, s) => acc + (s.total_violations || 0), 0);
+        document.getElementById('statViolations').textContent = totalViol;
+        document.getElementById('statActive').textContent = allSessions.filter(s => s.is_active).length;
+    }
+
+    function getRiskLevel(s) {
+        if (s.total_violations >= 5) return 'high';
+        if (s.total_violations >= 2) return 'medium';
+        return 'low';
+    }
+
+    function renderTable() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = allSessions.filter(s => {
+            const matchSearch = !query || s.session_id.toLowerCase().includes(query);
+            const risk = getRiskLevel(s);
+            const matchRisk = riskFilter === 'all' || (riskFilter === 'high' && risk !== 'low') || (riskFilter === 'clean' && risk === 'low');
+            return matchSearch && matchRisk;
+        });
+
+        const wrap = document.getElementById('reportsTableWrap');
+        if (filtered.length === 0) {
+            wrap.innerHTML = `<div class="empty-reports">
+                <div style="font-size:48px;margin-bottom:16px">📭</div>
+                <p style="font-size:16px;font-weight:600;margin-bottom:6px">No reports found</p>
+                <p style="font-size:13px">No sessions match the current filter.</p>
+            </div>`;
+            return;
+        }
+
+        const rows = filtered.map(s => {
+            const risk = getRiskLevel(s);
+            const badgeColors = { high: 'badge-red', medium: 'badge-yellow', low: 'badge-green' };
+            const dur = s.duration ? `${Math.round(s.duration)}s` : '—';
+            const activeDot = s.is_active ? '<span class="live-dot" style="margin-right:4px"></span>' : '';
+            return `<tr class="reports-row" data-sid="${s.session_id}" onclick="showDetail('${s.session_id}')">
+                <td style="font-family:monospace;font-size:12px;color:var(--text-muted)">${activeDot}${s.session_id.substring(0,24)}...</td>
+                <td>${dur}</td>
+                <td><span class="badge ${badgeColors[risk]}">${s.total_violations || 0} violations</span></td>
+                <td>${s.tab_switches || 0}</td>
+                <td style="display:flex;gap:6px">
+                    <a href="/analytics/session/${s.session_id}/" class="btn btn-sm btn-outline" onclick="event.stopPropagation()">📈 View</a>
+                    <a href="/analytics/reports/${s.session_id}/pdf/" class="btn btn-sm btn-primary" onclick="event.stopPropagation()">📄 PDF</a>
+                </td>
+            </tr>`;
+        }).join('');
+
+        wrap.innerHTML = `<table class="table reports-table" style="min-width:600px">
+            <thead><tr>
+                <th>Session ID</th><th>Duration</th><th>Violations</th><th>Tab Switches</th><th>Actions</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    function showDetail(sid) {
+        const s = allSessions.find(x => x.session_id === sid);
+        if (!s) return;
+
+        // Deselect previous
+        document.querySelectorAll('.reports-row.selected').forEach(r => r.classList.remove('selected'));
+        const row = document.querySelector(`.reports-row[data-sid="${sid}"]`);
+        if (row) row.classList.add('selected');
+        selectedRow = sid;
+
+        // Fill detail panel
+        document.getElementById('detailSessionId').textContent = sid;
+        document.getElementById('detailDuration').textContent = s.duration ? `${Math.round(s.duration)}s` : '—';
+        document.getElementById('detailViolations').textContent = s.total_violations || 0;
+        document.getElementById('detailTabs').textContent = s.tab_switches || 0;
+        document.getElementById('detailBlinks').textContent = s.blink_count || 0;
+        document.getElementById('detailPdfBtn').href = `/analytics/reports/${sid}/pdf/`;
+        document.getElementById('detailViewBtn').href = `/analytics/session/${sid}/`;
+        
+        // Live badge
+        const liveBadge = document.getElementById('detailLiveBadge');
+        liveBadge.style.display = s.is_active ? 'inline-flex' : 'none';
+
+        // Violations list
+        const vl = document.getElementById('detailViolationList');
+        if (s.violations && s.violations.length > 0) {
+            vl.innerHTML = s.violations.slice(-10).reverse().map(v =>
+                `<div class="viol-mini ${v.severity === 'high' ? 'high' : ''}">
+                    <strong>${v.type}</strong> — ${v.message}
+                    <div style="color:var(--text-muted);font-size:10px;margin-top:2px">${(v.timestamp||'').substring(0,19)}</div>
+                </div>`
+            ).join('');
+        } else {
+            vl.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px">✅ No violations in this session</div>';
+        }
+
+        document.getElementById('detailPanel').classList.add('visible');
+        document.getElementById('detailPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function filterTable() { renderTable(); }
+
+    function setRiskFilter(btn, value) {
+        document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        riskFilter = value;
+        filterTable();
+    }
+
+    function refreshReports() {
+        const btn = document.getElementById('refreshBtn');
+        btn.textContent = '⏳ Refreshing...';
+        btn.disabled = true;
+        fetchSessions().finally(() => {
+            btn.textContent = '🔄 Refresh';
+            btn.disabled = false;
+        });
+    }
+
+    // Initial load from server-rendered data (fallback)
+    const serverSessions = [{% for s in sessions %}
+        {
+            session_id: "{{ s.session_id }}",
+            duration: {{ s.duration|default:"0" }},
+            total_violations: {{ s.total_violations|default:"0" }},
+            tab_switches: {{ s.tab_switches|default:"0" }},
+            blink_count: {{ s.blink_count|default:"0" }},
+            is_active: {{ s.is_active|yesno:"true,false" }},
+            violations: {{ s.violations|default:"[]"|safe }}
+        },
+    {% endfor %}];
+    allSessions = serverSessions;
+    renderTable();
+    updateStats();
+
+    // Fetch fresh data and then auto-refresh every 10s
+    fetchSessions();
+    setInterval(fetchSessions, 10000);
+</script>
+{% endblock %}
